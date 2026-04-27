@@ -43,6 +43,16 @@ docker compose up -d
 
 The sample persists configuration, authentication, SSH state, cloudflared state, workspaces, editor state, and user-installed tools so the container can be recreated without losing developer environment setup.
 
+After starting the container, review this operational checklist:
+
+- Change `UI_PASSWORD` from the example value before exposing the web UI.
+- If OpenChamber is published through a reverse proxy, enforce HTTPS, access control, and any additional authentication at the reverse proxy layer.
+- Ensure the persisted `./data` directory is writable by the container user (`UID 1000`): `sudo chown -R 1000:1000 ./data`.
+- Authenticate GitHub CLI inside the container with `gh auth login`, then verify with `gh auth status`.
+- Configure Git identity inside the container with `git config --global user.name` and `git config --global user.email`.
+- Verify SSH access if using SSH Git remotes: `ssh -T git@github.com`.
+- Confirm the UI responds on port `3000` before putting it behind external access.
+
 Default image name:
 
 ```text
