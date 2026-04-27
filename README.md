@@ -29,6 +29,7 @@ Key behavior:
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
 - Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
+- `oh-my-opencode` is optional; when `OH_MY_OPENCODE=true`, the entrypoint installs it on demand into an internal, non-mounted npm prefix instead of `~/.npm-global`.
 - Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
 
 ## Docker Compose example
@@ -96,3 +97,5 @@ cargo install <tool> --version <version>      # -> ~/.cargo/bin
 ```
 
 The image installs core tools globally outside mounted paths so a fresh empty `~/.npm-global` volume does not hide required runtime tools like `opencode-ai`.
+
+When `OH_MY_OPENCODE=true`, `oh-my-opencode` is installed into `/opt/openchamber/npm-global` by default. This avoids corrupting or depending on the persisted `~/.npm-global` volume. Override `OMO_NPM_PREFIX` or `OMO_NPM_PACKAGE` if you need a custom install location or package spec.

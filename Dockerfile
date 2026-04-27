@@ -61,9 +61,10 @@ RUN userdel bun \
   && groupadd -g 1000 openchamber \
   && useradd -u 1000 -g 1000 -m -s /bin/bash openchamber \
   && mkdir -p /etc/sudoers.d \
+  && mkdir -p /opt/openchamber/npm-global \
   && printf 'openchamber ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/openchamber \
   && chmod 0440 /etc/sudoers.d/openchamber \
-  && chown -R openchamber:openchamber /home/openchamber
+  && chown -R openchamber:openchamber /home/openchamber /opt/openchamber
 
 COPY --from=cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 RUN npm ci --omit=dev --ignore-scripts --prefix /tmp/toolchain \
@@ -71,6 +72,30 @@ RUN npm ci --omit=dev --ignore-scripts --prefix /tmp/toolchain \
   && rm -rf /tmp/toolchain /root/.npm
 
 COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
+RUN python3 - <<'PY'
+from pathlib import Path
+
+path = Path('/home/openchamber/openchamber-entrypoint.sh')
+text = path.read_text()
+old = '''    echo "[entrypoint] npm installing oh-my-opencode..."
+    npm install -g oh-my-opencode
+
+'''
+new = '''    OMO_NPM_PREFIX="${OMO_NPM_PREFIX:-/opt/openchamber/npm-global}"
+    OMO_NPM_PACKAGE="${OMO_NPM_PACKAGE:-oh-my-opencode}"
+    export PATH="${OMO_NPM_PREFIX}/bin:${PATH}"
+
+    if ! command -v oh-my-opencode >/dev/null 2>&1; then
+      rm -rf "${OMO_NPM_PREFIX}/lib/node_modules/.oh-my-opencode-"*
+      echo "[entrypoint] npm installing ${OMO_NPM_PACKAGE} into ${OMO_NPM_PREFIX}..."
+      npm install -g --prefix "${OMO_NPM_PREFIX}" "${OMO_NPM_PACKAGE}"
+    fi
+
+'''
+if old not in text:
+    raise SystemExit('Expected oh-my-opencode runtime install block not found')
+path.write_text(text.replace(old, new))
+PY
 
 COPY --from=app-builder /app/node_modules ./node_modules
 COPY --from=app-builder /app/packages/web/node_modules ./packages/web/node_modules
@@ -94,7 +119,7 @@ ENV XDG_CACHE_HOME=/home/openchamber/.cache
 ENV XDG_CONFIG_HOME=/home/openchamber/.config
 ENV XDG_DATA_HOME=/home/openchamber/.local/share
 ENV XDG_STATE_HOME=/home/openchamber/.local/state
-ENV PATH=/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin:${PATH}
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/openchamber/npm-global/bin:/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin
 
 RUN mkdir -p \
   /home/openchamber/.bun \
