@@ -21,6 +21,15 @@
       "checksumAsset": "actionlint_1.7.12_checksums.txt",
       "checksumFormat": "sha256sum",
       "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+    },
+    {
+      "name": "marksman",
+      "repo": "artempyanykh/marksman",
+      "version": "2026-02-08",
+      "asset": "marksman-linux-x64",
+      "checksumAsset": null,
+      "checksumFormat": "github-asset-digest",
+      "sha256": "be5098e8213219269c47fc0d916a66fa31ce0602ec967475c722260aabf26087"
     }
   ]
 }

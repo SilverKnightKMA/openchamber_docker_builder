@@ -73,6 +73,7 @@ function expectedAsset(tool, version) {
 }
 
 function expectedChecksumAsset(tool, version) {
+  if (tool.checksumFormat === "github-asset-digest") return null;
   if (tool.name === "actionlint") return actionlintChecksumAsset(version);
   return tool.checksumAsset;
 }
@@ -94,6 +95,9 @@ function parseChecksum(tool, checksumText, asset) {
     }
     return sha256;
   }
+  if (tool.checksumFormat === "github-asset-digest") {
+    throw new Error("github-asset-digest checksums are read from release asset metadata");
+  }
   throw new Error(`Unsupported checksum format: ${tool.checksumFormat}`);
 }
 
@@ -111,15 +115,22 @@ for (const tool of manifest.tools) {
   const asset = expectedAsset(tool, latestVersion);
   const checksumAsset = expectedChecksumAsset(tool, latestVersion);
   const assetEntry = release.assets.find((entry) => entry.name === asset);
-  const checksumEntry = release.assets.find((entry) => entry.name === checksumAsset);
   if (!assetEntry) throw new Error(`${tool.name} release ${latestVersion} is missing asset ${asset}`);
-  if (!checksumEntry) throw new Error(`${tool.name} release ${latestVersion} is missing checksum asset ${checksumAsset}`);
 
-  const checksumText = await fetchText(checksumEntry.browser_download_url);
   tool.version = latestVersion;
   tool.asset = asset;
   tool.checksumAsset = checksumAsset;
-  tool.sha256 = parseChecksum(tool, checksumText, asset);
+  if (tool.checksumFormat === "github-asset-digest") {
+    if (!assetEntry.digest?.startsWith("sha256:")) {
+      throw new Error(`${tool.name} release ${latestVersion} asset ${asset} is missing GitHub SHA-256 digest metadata`);
+    }
+    tool.sha256 = assetEntry.digest.slice("sha256:".length);
+  } else {
+    const checksumEntry = release.assets.find((entry) => entry.name === checksumAsset);
+    if (!checksumEntry) throw new Error(`${tool.name} release ${latestVersion} is missing checksum asset ${checksumAsset}`);
+    const checksumText = await fetchText(checksumEntry.browser_download_url);
+    tool.sha256 = parseChecksum(tool, checksumText, asset);
+  }
   changed = true;
 }
 
