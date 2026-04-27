@@ -2,7 +2,7 @@
 
 FROM cloudflare/cloudflared:latest@sha256:64f4e9d6a867f71d89ae3318460bb3c604923b4af62b1bc9e2f74ee7486e3052 AS cloudflared
 
-FROM ghcr.io/astral-sh/uv:0.11.8@sha256:5cbec7ab7753a6c763c6dda6a38f085c8c585ec9f53cfb4e7368b79ca30bc881 AS uv-bin
+FROM ghcr.io/astral-sh/uv:0.11.8@sha256:3b7b60a81d3c57ef471703e5c83fd4aaa33abcd403596fb22ab07db85ae91347 AS uv-bin
 
 FROM golang:1.25.9-bookworm@sha256:1a1408bf8d2d3077f9508880caf0e8bb0fde195fe3c890e7ea480dfb66dc7827 AS go-runtime
 
