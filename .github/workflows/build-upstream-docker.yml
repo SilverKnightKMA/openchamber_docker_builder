@@ -71,7 +71,7 @@ jobs:
         id: issue
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_TITLE: Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}
+          ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
         run: |
           COUNT="$(gh issue list \
             --state all \
@@ -84,7 +84,7 @@ jobs:
         if: steps.issue.outputs.exists == '0'
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_TITLE: Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}
+          ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
           UPSTREAM_COMMIT: ${{ steps.dockerfile.outputs.commit_sha }}
           UPSTREAM_SHORT_COMMIT: ${{ steps.dockerfile.outputs.short_commit_sha }}
           UPSTREAM_SUBJECT: ${{ steps.dockerfile.outputs.commit_subject }}
