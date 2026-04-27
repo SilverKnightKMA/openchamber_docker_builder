@@ -17,6 +17,7 @@ Example from a parent directory containing both repos:
 ```bash
 docker build \
   -f open_chamber_docker/Dockerfile \
+  --build-context toolchain=open_chamber_docker \
   -t openchamber:local \
   openchamber
 ```
@@ -28,6 +29,7 @@ Key behavior:
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
 - Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
+- Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
 
 ## Docker Compose example
 
@@ -71,6 +73,8 @@ The runtime image exposes `3000` and includes PATH entries for persisted tool lo
 The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
 
 The image bakes in stable tools such as `opencode-ai`, `pyright`, `typescript-language-server`, `vscode-langservers-extracted`, `yaml-language-server`, `dockerfile-language-server-nodejs`, `bash-language-server`, `clangd`, `shellcheck`, `ripgrep`, `fd`, `neovim`, and `tmux`.
+
+`bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
 
 ## Persisting auth and user-installed tools
 

@@ -5,6 +5,16 @@ permissions:
   packages: write
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - package.json
+      - package-lock.json
+      - docker-compose.example.yml
+      - README.md
+      - .github/workflows/build-upstream-docker.yml
   schedule:
     - cron: "*/30 * * * *" # poll upstream every 30 minutes
   workflow_dispatch:
@@ -28,7 +38,7 @@ env:
 jobs:
   build-main:
     name: Build upstream main
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -89,6 +99,8 @@ jobs:
         with:
           context: upstream
           file: builder/Dockerfile
+          build-contexts: |
+            toolchain=builder
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |
@@ -178,6 +190,8 @@ jobs:
         with:
           context: upstream
           file: builder/Dockerfile
+          build-contexts: |
+            toolchain=builder
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |
@@ -251,6 +265,8 @@ jobs:
         with:
           context: upstream
           file: builder/Dockerfile
+          build-contexts: |
+            toolchain=builder
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |

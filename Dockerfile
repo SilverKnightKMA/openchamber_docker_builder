@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3.5 AS builder
+FROM oven/bun:1.3.5 AS app-builder
 WORKDIR /app
 
 # Use the full upstream source tree as build context so Bun workspace
@@ -11,6 +11,8 @@ RUN bun run build:web
 
 FROM oven/bun:1.3.5 AS runtime
 WORKDIR /home/openchamber
+
+COPY --from=toolchain package.json package-lock.json /tmp/toolchain/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
@@ -64,25 +66,19 @@ RUN userdel bun \
   && chown -R openchamber:openchamber /home/openchamber
 
 COPY --from=cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
-RUN npm install -g \
-  bash-language-server \
-  dockerfile-language-server-nodejs \
-  opencode-ai \
-  pyright \
-  typescript \
-  typescript-language-server \
-  vscode-langservers-extracted \
-  yaml-language-server
+RUN npm ci --omit=dev --ignore-scripts --prefix /tmp/toolchain \
+  && npm install -g --ignore-scripts /tmp/toolchain \
+  && rm -rf /tmp/toolchain /root/.npm
 
-COPY --from=builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
+COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/web/node_modules ./packages/web/node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/packages/web/package.json ./packages/web/package.json
-COPY --from=builder /app/packages/web/bin ./packages/web/bin
-COPY --from=builder /app/packages/web/server ./packages/web/server
-COPY --from=builder /app/packages/web/dist ./packages/web/dist
+COPY --from=app-builder /app/node_modules ./node_modules
+COPY --from=app-builder /app/packages/web/node_modules ./packages/web/node_modules
+COPY --from=app-builder /app/package.json ./package.json
+COPY --from=app-builder /app/packages/web/package.json ./packages/web/package.json
+COPY --from=app-builder /app/packages/web/bin ./packages/web/bin
+COPY --from=app-builder /app/packages/web/server ./packages/web/server
+COPY --from=app-builder /app/packages/web/dist ./packages/web/dist
 
 USER openchamber
 
