@@ -43,13 +43,13 @@ jobs:
 
     steps:
       - name: Checkout builder repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: builder
           fetch-depth: 1
 
       - name: Checkout upstream main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.UPSTREAM_REPO }}
           ref: main
@@ -128,7 +128,7 @@ jobs:
 
     steps:
       - name: Checkout builder repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: builder
           fetch-depth: 1
@@ -142,7 +142,7 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout upstream release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.UPSTREAM_REPO }}
           ref: ${{ steps.release.outputs.tag }}
@@ -219,13 +219,13 @@ jobs:
 
     steps:
       - name: Checkout builder repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: builder
           fetch-depth: 1
 
       - name: Checkout upstream ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.UPSTREAM_REPO }}
           ref: ${{ inputs.upstream_ref }}
