@@ -1,0 +1,148 @@
+name: Build Upstream Main
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - package.json
+      - package-lock.json
+      - go.mod
+      - go.sum
+      - tools.go
+      - tools/release-tools.json
+      - scripts/install-release-tools.sh
+      - .github/workflows/build-upstream-main.yml
+      - .github/workflows/build-upstream-release.yml
+  schedule:
+    - cron: "7 */2 * * *"
+  workflow_dispatch:
+
+env:
+  UPSTREAM_REPO: openchamber/openchamber
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/openchamber
+
+jobs:
+  build-main:
+    name: Build upstream main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v6
+        with:
+          path: builder
+          fetch-depth: 1
+
+      - name: Resolve builder scope fingerprint
+        id: builder_scope
+        working-directory: builder
+        run: |
+          files=(
+            Dockerfile
+            package.json
+            package-lock.json
+            go.mod
+            go.sum
+            tools.go
+            tools/release-tools.json
+            scripts/install-release-tools.sh
+            .github/workflows/build-upstream-main.yml
+            .github/workflows/build-upstream-release.yml
+          )
+
+          for file in "${files[@]}"; do
+            if [ ! -f "${file}" ]; then
+              echo "Missing builder scope file: ${file}" >&2
+              exit 1
+            fi
+          done
+
+          builder_scope_sha="$({ for file in "${files[@]}"; do sha256sum "${file}"; done; } | sha256sum | cut -d' ' -f1)"
+          builder_scope_short_sha="$(printf '%s' "${builder_scope_sha}" | cut -c1-12)"
+
+          {
+            echo "builder_scope_sha=${builder_scope_sha}"
+            echo "builder_scope_short_sha=${builder_scope_short_sha}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout upstream main
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: main
+          path: upstream
+          fetch-depth: 1
+
+      - name: Resolve upstream revision
+        id: upstream
+        working-directory: upstream
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tags
+        id: tags
+        run: |
+          IMAGE="${REGISTRY}/$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          VERSION_TAG="main-u${{ steps.upstream.outputs.short_sha }}-b${{ steps.builder_scope.outputs.builder_scope_short_sha }}"
+          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE}:latest,${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          echo "check_tag=${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check whether upstream main image already exists
+        id: existing
+        run: |
+          if docker manifest inspect "${{ steps.tags.outputs.check_tag }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Image tag already exists: ${{ steps.tags.outputs.check_tag }}"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push upstream main image
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: upstream
+          file: builder/Dockerfile
+          build-contexts: |
+            toolchain=builder
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
+            org.opencontainers.image.revision=${{ steps.upstream.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.tags.outputs.version_tag }}
+            org.opencontainers.image.description=Built from upstream ${{ env.UPSTREAM_REPO }} main
+            io.openchamber.builder-scope-sha=${{ steps.builder_scope.outputs.builder_scope_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+            echo "## Build skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ steps.tags.outputs.check_tag }} already exists." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Build complete" >> "$GITHUB_STEP_SUMMARY"
+            echo "Pushed: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Builder scope: \`${{ steps.builder_scope.outputs.builder_scope_short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"

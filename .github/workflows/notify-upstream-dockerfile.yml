@@ -1,0 +1,86 @@
+name: Notify Upstream Dockerfile Changes
+
+permissions:
+  contents: read
+  issues: write
+
+on:
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+
+env:
+  UPSTREAM_REPO: openchamber/openchamber
+
+jobs:
+  notify-upstream-dockerfile:
+    name: Notify upstream Dockerfile changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout upstream main
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: main
+          path: upstream
+          fetch-depth: 0
+
+      - name: Resolve upstream Dockerfile revision
+        id: dockerfile
+        working-directory: upstream
+        run: |
+          BLOB_SHA="$(git rev-parse HEAD:Dockerfile)"
+          COMMIT_SHA="$(git log -1 --format=%H -- Dockerfile)"
+          SHORT_COMMIT_SHA="$(git rev-parse --short "${COMMIT_SHA}")"
+          COMMIT_SUBJECT="$(git log -1 --format=%s -- Dockerfile)"
+
+          {
+            echo "blob_sha=${BLOB_SHA}"
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "short_commit_sha=${SHORT_COMMIT_SHA}"
+            echo "commit_subject=${COMMIT_SUBJECT}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check existing notification issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
+        run: |
+          COUNT="$(gh issue list \
+            --repo "${GH_REPO}" \
+            --state all \
+            --search "\"${ISSUE_TITLE}\" in:title" \
+            --json number \
+            --jq 'length')"
+          echo "exists=${COUNT}" >> "$GITHUB_OUTPUT"
+
+      - name: Create notification issue
+        if: steps.issue.outputs.exists == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
+          UPSTREAM_COMMIT: ${{ steps.dockerfile.outputs.commit_sha }}
+          UPSTREAM_SHORT_COMMIT: ${{ steps.dockerfile.outputs.short_commit_sha }}
+          UPSTREAM_SUBJECT: ${{ steps.dockerfile.outputs.commit_subject }}
+          UPSTREAM_BLOB: ${{ steps.dockerfile.outputs.blob_sha }}
+        run: |
+          cat > issue-body.md <<EOF
+          The upstream Dockerfile in \`${UPSTREAM_REPO}\` has a Dockerfile blob SHA that has not been reviewed by this builder repo yet.
+
+          - Upstream commit: https://github.com/${UPSTREAM_REPO}/commit/${UPSTREAM_COMMIT}
+          - Upstream commit short SHA: \`${UPSTREAM_SHORT_COMMIT}\`
+          - Upstream Dockerfile blob SHA: \`${UPSTREAM_BLOB}\`
+          - Commit subject: ${UPSTREAM_SUBJECT}
+          - Dockerfile: https://github.com/${UPSTREAM_REPO}/blob/${UPSTREAM_COMMIT}/Dockerfile
+
+          Review whether \`builder/Dockerfile\` behavior should be updated to match upstream Dockerfile changes.
+          EOF
+
+          gh issue create \
+            --repo "${GH_REPO}" \
+            --title "${ISSUE_TITLE}" \
+            --body-file issue-body.md
