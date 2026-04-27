@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3.5 AS app-builder
+FROM oven/bun:1.3.13 AS app-builder
 WORKDIR /app
 
 # Use the full upstream source tree as build context so Bun workspace
@@ -9,7 +9,7 @@ COPY . .
 RUN bun install --ignore-scripts
 RUN bun run build:web
 
-FROM oven/bun:1.3.5 AS runtime
+FROM oven/bun:1.3.13 AS runtime
 WORKDIR /home/openchamber
 
 COPY --from=toolchain package.json package-lock.json /tmp/toolchain/
