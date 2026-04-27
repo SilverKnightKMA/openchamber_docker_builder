@@ -1,0 +1,246 @@
+name: Build Upstream Docker
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # poll upstream every 30 minutes
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "Upstream branch, tag, or SHA to build"
+        required: false
+        type: string
+        default: "main"
+      docker_tag:
+        description: "Docker tag to publish for manual builds"
+        required: false
+        type: string
+        default: "manual"
+
+env:
+  UPSTREAM_REPO: openchamber/openchamber
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-main:
+    name: Build upstream main
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout upstream main
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: main
+          path: upstream
+          fetch-depth: 1
+
+      - name: Resolve upstream revision
+        id: upstream
+        working-directory: upstream
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tags
+        id: tags
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_NAME}"
+          VERSION_TAG="main-${{ steps.upstream.outputs.short_sha }}"
+          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE}:latest,${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          echo "check_tag=${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check whether upstream main image already exists
+        id: existing
+        run: |
+          if docker manifest inspect "${{ steps.tags.outputs.check_tag }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Image tag already exists: ${{ steps.tags.outputs.check_tag }}"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push upstream main image
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
+            org.opencontainers.image.revision=${{ steps.upstream.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.tags.outputs.version_tag }}
+            org.opencontainers.image.description=Built from upstream ${{ env.UPSTREAM_REPO }} main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+            echo "## Build skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ steps.tags.outputs.check_tag }} already exists." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Build complete" >> "$GITHUB_STEP_SUMMARY"
+            echo "Pushed: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build-release:
+    name: Build latest upstream release
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve latest upstream release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$(gh api "repos/${UPSTREAM_REPO}/releases/latest" --jq .tag_name)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout upstream release
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ steps.release.outputs.tag }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Resolve upstream revision
+        id: upstream
+        working-directory: upstream
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tags
+        id: tags
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_NAME}"
+          echo "tags=${IMAGE}:${{ steps.release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          echo "check_tag=${IMAGE}:${{ steps.release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check whether upstream release image already exists
+        id: existing
+        run: |
+          if docker manifest inspect "${{ steps.tags.outputs.check_tag }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Image tag already exists: ${{ steps.tags.outputs.check_tag }}"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push upstream release image
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
+            org.opencontainers.image.revision=${{ steps.upstream.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.release.outputs.tag }}
+            org.opencontainers.image.description=Built from upstream ${{ env.UPSTREAM_REPO }} release ${{ steps.release.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+            echo "## Build skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ steps.tags.outputs.check_tag }} already exists." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Build complete" >> "$GITHUB_STEP_SUMMARY"
+            echo "Pushed: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build-manual:
+    name: Build manual upstream ref
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout upstream ref
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ inputs.upstream_ref }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Resolve upstream revision
+        id: upstream
+        working-directory: upstream
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tags
+        id: tags
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_NAME}"
+          TAG="${{ inputs.docker_tag }}"
+          if [ -z "${TAG}" ]; then
+            TAG="manual-${{ steps.upstream.outputs.short_sha }}"
+          fi
+          echo "docker_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE}:${TAG},${IMAGE}:manual-${{ steps.upstream.outputs.short_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push manual image
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
+            org.opencontainers.image.revision=${{ steps.upstream.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.tags.outputs.docker_tag }}
+            org.opencontainers.image.description=Built from upstream ${{ env.UPSTREAM_REPO }} ref ${{ inputs.upstream_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "## Manual build complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
