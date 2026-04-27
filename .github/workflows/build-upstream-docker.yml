@@ -32,6 +32,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v4
+        with:
+          path: builder
+          fetch-depth: 1
+
       - name: Checkout upstream main
         uses: actions/checkout@v4
         with:
@@ -82,6 +88,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: upstream
+          file: builder/Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |
@@ -108,6 +115,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v4
+        with:
+          path: builder
+          fetch-depth: 1
+
       - name: Resolve latest upstream release
         id: release
         env:
@@ -164,6 +177,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: upstream
+          file: builder/Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |
@@ -190,6 +204,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v4
+        with:
+          path: builder
+          fetch-depth: 1
+
       - name: Checkout upstream ref
         uses: actions/checkout@v4
         with:
@@ -230,6 +250,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: upstream
+          file: builder/Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           labels: |

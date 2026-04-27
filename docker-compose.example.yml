@@ -1,0 +1,36 @@
+services:
+  openchamber:
+    image: ghcr.io/silverknightkma/openchamber_docker_builder:latest
+    container_name: openchamber
+    ports:
+      - "3000:3000"
+      - "4095:4095"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      OPENCHAMBER_HOST: 0.0.0.0
+      OPENCODE_CONFIG_DIR: /home/openchamber/.config/opencode
+      GIT_CONFIG_GLOBAL: /home/openchamber/.config/git/config
+      UI_PASSWORD: change-me
+      # OH_MY_OPENCODE: "true"
+    restart: unless-stopped
+    volumes:
+      - ./data/config/openchamber:/home/openchamber/.config/openchamber
+      - ./data/config/opencode:/home/openchamber/.config/opencode
+      - ./data/share/opencode:/home/openchamber/.local/share/opencode
+      - ./data/state/opencode:/home/openchamber/.local/state/opencode
+      - ./data/ssh:/home/openchamber/.ssh
+      - ./data/workspaces:/home/openchamber/workspaces
+      - ./data/config/git:/home/openchamber/.config/git
+      - ./data/config/gh:/home/openchamber/.config/gh
+      - ./data/npm-global:/home/openchamber/.npm-global
+      - ./data/bun:/home/openchamber/.bun
+      - ./data/local-bin:/home/openchamber/.local/bin
+      - ./data/local-pip:/home/openchamber/.local/pip
+      - ./data/cargo:/home/openchamber/.cargo
+      - ./data/rustup:/home/openchamber/.rustup
+      - ./data/go:/home/openchamber/.go
+      - ./data/nvim/config:/home/openchamber/.config/nvim
+      - ./data/nvim/share:/home/openchamber/.local/share/nvim
+      - ./data/nvim/state:/home/openchamber/.local/state/nvim
+      - ./data/cloudflared:/home/openchamber/.cloudflared
