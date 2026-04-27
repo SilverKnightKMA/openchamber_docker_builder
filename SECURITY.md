@@ -26,7 +26,7 @@ This repository uses Dependabot, CodeQL/code scanning, and dependency manifests 
 - Docker base images and GitHub Actions are updated through Dependabot where supported.
 - NPM-based editor and language tooling is pinned in `package.json`/`package-lock.json`.
 - Go-based tooling is pinned through `go.mod`, `go.sum`, and `tools.go`.
-- Release-managed binaries must be pinned in `tools/release-tools.json` and verified with upstream-provided checksums. The updater must not download binaries only to compute hashes.
+- Release-managed binaries must be pinned in `tools/release-tools.json` and verified with an authoritative SHA-256 source, either upstream-published checksum assets or GitHub release asset digest metadata. The updater must not download binaries only to compute hashes.
 
 Known advisories may be dismissed only with an explicit accepted-risk note when the affected package is used strictly as local editor/LSP tooling and the vulnerable runtime path is not exposed by the image.
 

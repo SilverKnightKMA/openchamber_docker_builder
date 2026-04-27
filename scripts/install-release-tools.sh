@@ -36,16 +36,31 @@ PY
 while IFS="$(printf '\t')" read -r name repo version asset sha256; do
   url="https://github.com/${repo}/releases/download/${version}/${asset}"
   download="${tmp_dir}/${asset}"
+  extract_dir="${tmp_dir}/${name}"
 
   curl -fsSL "${url}" -o "${download}"
   printf '%s  %s\n' "${sha256}" "${download}" | sha256sum -c -
 
   case "${asset}" in
     *.tar.gz)
-      extract_dir="${tmp_dir}/${name}"
       mkdir -p "${extract_dir}"
       tar -xzf "${download}" -C "${extract_dir}"
-      install -m 0755 "${extract_dir}/${name}" "${install_dir}/${name}"
+      binary_path="${extract_dir}/${name}"
+      if [ ! -f "${binary_path}" ] || [ ! -x "${binary_path}" ]; then
+        candidates_file="${tmp_dir}/${name}.candidates"
+        find "${extract_dir}" -type f -name "${name}" -perm /111 > "${candidates_file}"
+        candidate_count="$(wc -l < "${candidates_file}" | tr -d ' ')"
+        if [ "${candidate_count}" -ne 1 ]; then
+          printf 'expected exactly one executable %s binary inside %s, found %s\n' "${name}" "${asset}" "${candidate_count}" >&2
+          exit 1
+        fi
+        binary_path="$(cat "${candidates_file}")"
+      fi
+      if [ -z "${binary_path}" ] || [ ! -f "${binary_path}" ] || [ ! -x "${binary_path}" ]; then
+        printf 'failed to locate %s binary inside %s\n' "${name}" "${asset}" >&2
+        exit 1
+      fi
+      install -m 0755 "${binary_path}" "${install_dir}/${name}"
       ;;
     *)
       install -m 0755 "${download}" "${install_dir}/${name}"

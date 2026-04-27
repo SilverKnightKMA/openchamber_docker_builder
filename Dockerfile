@@ -1,6 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3.13 AS app-builder
+FROM cloudflare/cloudflared:latest@sha256:64f4e9d6a867f71d89ae3318460bb3c604923b4af62b1bc9e2f74ee7486e3052 AS cloudflared
+
+FROM ghcr.io/astral-sh/uv:0.11.8@sha256:5cbec7ab7753a6c763c6dda6a38f085c8c585ec9f53cfb4e7368b79ca30bc881 AS uv-bin
+
+FROM golang:1.25.9-bookworm@sha256:1a1408bf8d2d3077f9508880caf0e8bb0fde195fe3c890e7ea480dfb66dc7827 AS go-runtime
+
+FROM oven/bun:1.3.13@sha256:bb35eafd10b2e969809384850ff0474ba36a491239d715864bc87787b4cdf0a4 AS app-builder
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /app
 
 # Use the full upstream source tree as build context so Bun workspace
@@ -9,7 +16,8 @@ COPY . .
 RUN bun install --ignore-scripts
 RUN bun run build:web
 
-FROM oven/bun:1.3.13 AS runtime
+FROM oven/bun:1.3.13@sha256:bb35eafd10b2e969809384850ff0474ba36a491239d715864bc87787b4cdf0a4 AS runtime
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /home/openchamber
 
 COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
@@ -28,10 +36,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   curl \
   dnsutils \
   fd-find \
+  file \
   fzf \
   git \
   git-lfs \
-  golang-go \
   gettext-base \
   iproute2 \
   iputils-ping \
@@ -65,7 +73,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   unzip \
   vim \
   wget \
+  xz-utils \
   zip \
+  psmisc \
   && ln -sf /usr/bin/batcat /usr/local/bin/bat \
   && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
   && ln -sf /usr/bin/python3 /usr/local/bin/python \
@@ -91,7 +101,9 @@ RUN userdel bun \
   && chmod 0440 /etc/sudoers.d/openchamber \
   && chown -R openchamber:openchamber /home/openchamber /opt/openchamber
 
-COPY --from=cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+COPY --from=uv-bin /uv /uvx /usr/local/bin/
+COPY --from=go-runtime /usr/local/go /usr/local/go
+COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 RUN printf '%s\n' \
   '#!/usr/bin/env sh' \
   'echo "[xdg-open] ignored in headless container: $*" >&2' \
@@ -103,7 +115,6 @@ RUN npm ci --omit=dev --prefix /opt/openchamber/toolchain \
     ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
   done \
   && rm -rf /root/.npm
-RUN python3 -m pip install --no-cache-dir --break-system-packages uv==0.11.8
 RUN install-release-tools /opt/openchamber/release-tools.json \
   && rm -f /usr/local/bin/install-release-tools
 RUN cd /opt/openchamber/go-tools \
@@ -159,7 +170,7 @@ ENV XDG_CACHE_HOME=/home/openchamber/.cache
 ENV XDG_CONFIG_HOME=/home/openchamber/.config
 ENV XDG_DATA_HOME=/home/openchamber/.local/share
 ENV XDG_STATE_HOME=/home/openchamber/.local/state
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/openchamber/npm-global/bin:/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/openchamber/npm-global/bin:/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin
 
 RUN mkdir -p \
   /home/openchamber/.bun \

@@ -24,13 +24,15 @@ docker build \
 
 Key behavior:
 
-- Base image versions are pinned in `Dockerfile` and updated by Dependabot.
+- Base image versions are pinned in `Dockerfile`. Supported `FROM` tags are updated by Dependabot, while this repository's image-digest workflow refreshes pinned `linux/amd64` digests for allowlisted image references.
 - Build uses the full upstream source tree as context to avoid Bun workspace/frozen-lockfile failures caused by partial manifest copying.
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
 - Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
 - `oh-my-opencode` is optional; when `OH_MY_OPENCODE=true`, the entrypoint installs it on demand into an internal, non-mounted npm prefix instead of `~/.npm-global`.
 - Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
+- `cloudflared` intentionally tracks `cloudflare/cloudflared:latest` through a pinned `linux/amd64` digest that is refreshed by pull request rather than at container runtime.
+- Corepack is not enabled by default. The baked `pnpm` binary is a fallback; project-local package-manager commands remain preferred inside workspaces.
 
 ## Docker Compose example
 
@@ -83,7 +85,13 @@ The runtime image exposes `3000` and includes PATH entries for persisted tool lo
 
 The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
 
+Source images for Bun, Go, `uv`, and `cloudflared` are pinned by tag plus `linux/amd64` digest. Bun and Go use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through the image-digest workflow.
+
+Go is copied from an intentionally pinned official Go image instead of Debian's `golang-go` package so the runtime `go` command is compatible with this repository's Go tool manifest. `uv` is copied from the official Astral image instead of being installed through system Python.
+
 The exact baked npm tool list and versions live in `package.json`/`package-lock.json` so Dependabot can update them via normal dependency PRs.
+
+Release-managed standalone binaries live in `tools/release-tools.json` and are installed only after verifying an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. This includes `yq`, `actionlint`, `marksman`, `hadolint`, and `ruff`. Tools without an authoritative release binary/checksum path are not baked through this mechanism; `tokei` is intentionally omitted for now because its current GitHub release metadata does not provide an installable Linux binary with a matching authoritative checksum path.
 
 `bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
 
@@ -109,5 +117,9 @@ cargo install <tool> --version <version>      # -> ~/.cargo/bin
 ```
 
 The image installs core tools globally outside mounted paths so a fresh empty `~/.npm-global` volume does not hide required runtime tools like `opencode-ai`.
+
+Baked tools in `/usr/local/bin` and `/opt/openchamber/npm-global/bin` appear before persisted user install directories in `PATH`. For project work, prefer project-local commands such as `bun run`, `npm exec`, `npx`, or `pnpm exec`; those commands can resolve workspace-local `node_modules/.bin` entries and avoid conflicts with fallback global tools such as `eslint`, `prettier`, `biome`, or `pnpm`.
+
+Corepack is not enabled in this image. If a workspace requires Corepack-managed shims, enable them explicitly in the persisted user environment or the project workflow after confirming compatibility with that workspace's `packageManager` metadata.
 
 When `OH_MY_OPENCODE=true`, `oh-my-opencode` is installed into `/opt/openchamber/npm-global` by default. This avoids corrupting or depending on the persisted `~/.npm-global` volume. Override `OMO_NPM_PREFIX` or `OMO_NPM_PACKAGE` if you need a custom install location or package spec.

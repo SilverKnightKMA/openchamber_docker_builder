@@ -30,6 +30,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/update-release-tools.mjs
 
+      - name: Validate release tool manifest
+        run: node scripts/validate-release-tools.mjs
+
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:

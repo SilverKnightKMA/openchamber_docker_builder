@@ -30,6 +30,24 @@
       "checksumAsset": null,
       "checksumFormat": "github-asset-digest",
       "sha256": "be5098e8213219269c47fc0d916a66fa31ce0602ec967475c722260aabf26087"
+    },
+    {
+      "name": "hadolint",
+      "repo": "hadolint/hadolint",
+      "version": "v2.14.0",
+      "asset": "hadolint-linux-x86_64",
+      "checksumAsset": "hadolint-linux-x86_64.sha256",
+      "checksumFormat": "sha256sum",
+      "sha256": "6bf226944684f56c84dd014e8b979d27425c0148f61b3bd99bcc6f39e9dc5a47"
+    },
+    {
+      "name": "ruff",
+      "repo": "astral-sh/ruff",
+      "version": "0.15.12",
+      "asset": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+      "checksumAsset": "ruff-x86_64-unknown-linux-gnu.tar.gz.sha256",
+      "checksumFormat": "sha256sum",
+      "sha256": "5e26a7811f7db364864ace00cced53003556a37b63f3c987e340b18207776f1c"
     }
   ]
 }

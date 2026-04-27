@@ -1,0 +1,47 @@
+name: Update Image Digests
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  update-image-digests:
+    name: Update pinned image digests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Update Dockerfile image digests
+        run: node scripts/update-image-digests.mjs
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update pinned image digests"
+          title: "chore: update pinned image digests"
+          body: |
+            Updates allowlisted Dockerfile image digests to the current linux/amd64 manifest digests while preserving each pinned tag.
+
+            This workflow intentionally leaves tag selection to Dependabot where supported and only refreshes tag+digest references.
+          branch: automated/update-image-digests
+          labels: |
+            automated
+            dependencies

@@ -67,19 +67,39 @@ function actionlintChecksumAsset(version) {
   return `actionlint_${versionNoV}_checksums.txt`;
 }
 
+function hadolintChecksumAsset(asset) {
+  return `${asset}.sha256`;
+}
+
+function ruffAsset(version) {
+  void version;
+  return "ruff-x86_64-unknown-linux-gnu.tar.gz";
+}
+
+function ruffChecksumAsset(version) {
+  return `${ruffAsset(version)}.sha256`;
+}
+
 function expectedAsset(tool, version) {
   if (tool.name === "actionlint") return actionlintAsset(version);
+  if (tool.name === "ruff") return ruffAsset(version);
   return tool.asset;
 }
 
 function expectedChecksumAsset(tool, version) {
   if (tool.checksumFormat === "github-asset-digest") return null;
   if (tool.name === "actionlint") return actionlintChecksumAsset(version);
+  if (tool.name === "hadolint") return hadolintChecksumAsset(expectedAsset(tool, version));
+  if (tool.name === "ruff") return ruffChecksumAsset(version);
   return tool.checksumAsset;
 }
 
 function parseChecksum(tool, checksumText, asset) {
-  const line = checksumText.split(/\r?\n/).find((entry) => entry.trim().startsWith(`${asset} `) || entry.trim().endsWith(` ${asset}`));
+  const line = checksumText.split(/\r?\n/).find((entry) => {
+    const trimmed = entry.trim();
+    const parts = trimmed.split(/\s+/);
+    return parts.some((part) => part === asset || part === `*${asset}`);
+  });
   if (!line) {
     throw new Error(`Checksum for ${tool.name} asset ${asset} not found`);
   }
