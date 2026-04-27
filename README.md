@@ -24,7 +24,7 @@ docker build \
 
 Key behavior:
 
-- Base image is pinned to `oven/bun:1.3.5`.
+- Base image versions are pinned in `Dockerfile` and updated by Dependabot.
 - Build uses the full upstream source tree as context to avoid Bun workspace/frozen-lockfile failures caused by partial manifest copying.
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
@@ -72,7 +72,7 @@ The runtime image exposes `3000` and includes PATH entries for persisted tool lo
 
 The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
 
-The image bakes in stable tools such as `opencode-ai`, `pyright`, `typescript-language-server`, `vscode-langservers-extracted`, `yaml-language-server`, `dockerfile-language-server-nodejs`, `bash-language-server`, `clangd`, `shellcheck`, `ripgrep`, `fd`, `neovim`, and `tmux`.
+The exact baked npm tool list and versions live in `package.json`/`package-lock.json` so Dependabot can update them via normal dependency PRs.
 
 `bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
 
@@ -89,10 +89,10 @@ Configuration and auth should live in mounted home subdirectories, not in the im
 User-installed tools survive recreation when installed to the configured persisted paths:
 
 ```bash
-npm install -g <tool>                       # -> ~/.npm-global
-pip install --user <tool>                   # -> ~/.local/pip
-go install example.com/tool@latest          # -> ~/.go/bin
-cargo install <tool>                        # -> ~/.cargo/bin
+npm install -g <tool>                         # -> ~/.npm-global
+pip install --user <tool>                     # -> ~/.local/pip
+go install example.com/tool@<version>         # -> ~/.go/bin
+cargo install <tool> --version <version>      # -> ~/.cargo/bin
 ```
 
 The image installs core tools globally outside mounted paths so a fresh empty `~/.npm-global` volume does not hide required runtime tools like `opencode-ai`.
