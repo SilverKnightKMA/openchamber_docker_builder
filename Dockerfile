@@ -67,6 +67,12 @@ RUN userdel bun \
   && chown -R openchamber:openchamber /home/openchamber /opt/openchamber
 
 COPY --from=cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+RUN printf '%s\n' \
+  '#!/usr/bin/env sh' \
+  'echo "[xdg-open] ignored in headless container: $*" >&2' \
+  'exit 0' \
+  > /usr/local/bin/xdg-open \
+  && chmod +x /usr/local/bin/xdg-open
 RUN npm ci --omit=dev --ignore-scripts --prefix /opt/openchamber/toolchain \
   && for bin in /opt/openchamber/toolchain/node_modules/.bin/*; do \
     ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
