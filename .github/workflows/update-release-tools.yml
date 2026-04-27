@@ -1,0 +1,46 @@
+name: Update Release Tools
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  update-release-tools:
+    name: Update pinned release tools
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Update release tool manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/update-release-tools.mjs
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v9
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update release-managed tools"
+          title: "chore: update release-managed tools"
+          body: |
+            Updates pinned release-managed tool versions and upstream-provided checksums.
+
+            This workflow does not download release binaries to compute hashes; it only consumes release metadata and upstream checksum assets.
+          branch: automated/update-release-tools
+          labels: |
+            automated
+            dependencies

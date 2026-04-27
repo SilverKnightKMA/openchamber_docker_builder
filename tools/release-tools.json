@@ -1,0 +1,26 @@
+{
+  "policy": {
+    "requireUpstreamChecksum": true,
+    "allowDownloadAndHash": false
+  },
+  "tools": [
+    {
+      "name": "yq",
+      "repo": "mikefarah/yq",
+      "version": "v4.53.2",
+      "asset": "yq_linux_amd64",
+      "checksumAsset": "checksums",
+      "checksumFormat": "yq-checksums",
+      "sha256": "d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b"
+    },
+    {
+      "name": "actionlint",
+      "repo": "rhysd/actionlint",
+      "version": "v1.7.12",
+      "asset": "actionlint_1.7.12_linux_amd64.tar.gz",
+      "checksumAsset": "actionlint_1.7.12_checksums.txt",
+      "checksumFormat": "sha256sum",
+      "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+    }
+  ]
+}

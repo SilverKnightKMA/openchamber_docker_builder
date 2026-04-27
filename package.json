@@ -4,6 +4,7 @@
   "description": "Pinned npm toolchain packages baked into the OpenChamber Docker builder image.",
   "license": "MIT",
   "dependencies": {
+    "@ast-grep/cli": "0.42.1",
     "@biomejs/biome": "2.4.13",
     "@vue/language-server": "3.2.7",
     "bash-language-server": "5.6.0",

@@ -14,6 +14,8 @@ WORKDIR /home/openchamber
 
 COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
 COPY --from=toolchain go.mod go.sum tools.go /opt/openchamber/go-tools/
+COPY --from=toolchain tools/release-tools.json /opt/openchamber/release-tools.json
+COPY --from=toolchain scripts/install-release-tools.sh /usr/local/bin/install-release-tools
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
@@ -66,6 +68,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   zip \
   && ln -sf /usr/bin/batcat /usr/local/bin/bat \
   && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+  && chmod +x /usr/local/bin/install-release-tools \
   && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p -m 755 /etc/apt/keyrings \
@@ -94,11 +97,14 @@ RUN printf '%s\n' \
   'exit 0' \
   > /usr/local/bin/xdg-open \
   && chmod +x /usr/local/bin/xdg-open
-RUN npm ci --omit=dev --ignore-scripts --prefix /opt/openchamber/toolchain \
+RUN npm ci --omit=dev --prefix /opt/openchamber/toolchain \
   && for bin in /opt/openchamber/toolchain/node_modules/.bin/*; do \
     ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
   done \
   && rm -rf /root/.npm
+RUN python3 -m pip install --no-cache-dir --break-system-packages uv==0.11.8
+RUN install-release-tools /opt/openchamber/release-tools.json \
+  && rm -f /usr/local/bin/install-release-tools
 RUN cd /opt/openchamber/go-tools \
   && GOBIN=/usr/local/bin go install mvdan.cc/sh/v3/cmd/shfmt \
   && GOBIN=/usr/local/bin go install golang.org/x/tools/gopls \
