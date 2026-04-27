@@ -77,6 +77,8 @@ The exact baked npm tool list and versions live in `package.json`/`package-lock.
 
 `bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
 
+`svelte-language-server` is also pinned and Dependabot-managed. Its current dependency tree includes known moderate Svelte SSR advisories; this is accepted because the language server uses Svelte for local source analysis rather than serving SSR HTML, so the vulnerable web-rendering code paths are not exposed by this container image.
+
 ## Persisting auth and user-installed tools
 
 Configuration and auth should live in mounted home subdirectories, not in the image:

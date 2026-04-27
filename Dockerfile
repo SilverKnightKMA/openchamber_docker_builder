@@ -13,19 +13,26 @@ FROM oven/bun:1.3.13 AS runtime
 WORKDIR /home/openchamber
 
 COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
+COPY --from=toolchain go.mod go.sum tools.go /opt/openchamber/go-tools/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
+  bat \
   build-essential \
   ca-certificates \
   clangd \
+  clang-format \
+  cmake \
   curl \
   dnsutils \
   fd-find \
+  fzf \
   git \
   git-lfs \
   golang-go \
+  gettext-base \
   iproute2 \
+  iputils-ping \
   jq \
   less \
   lsof \
@@ -37,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   openssh-client \
   pkg-config \
   procps \
+  protobuf-compiler \
   python3 \
   python3-pip \
   python3-venv \
@@ -45,14 +53,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rustc \
   cargo \
   shellcheck \
+  sqlite3 \
   strace \
   sudo \
   tar \
   tmux \
+  tree \
+  universal-ctags \
   unzip \
   vim \
   wget \
   zip \
+  && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+  && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p -m 755 /etc/apt/keyrings \
+  && wget -qO /etc/apt/keyrings/githubcli-archive-keyring.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends gh \
   && rm -rf /var/lib/apt/lists/*
 
 # Replace the base image's 'bun' user (UID 1000) with 'openchamber'
@@ -78,6 +99,10 @@ RUN npm ci --omit=dev --ignore-scripts --prefix /opt/openchamber/toolchain \
     ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
   done \
   && rm -rf /root/.npm
+RUN cd /opt/openchamber/go-tools \
+  && GOBIN=/usr/local/bin go install mvdan.cc/sh/v3/cmd/shfmt \
+  && GOBIN=/usr/local/bin go install golang.org/x/tools/gopls \
+  && rm -rf /root/.cache/go-build /root/go/pkg/mod/cache
 
 COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
 RUN python3 - <<'PY'
