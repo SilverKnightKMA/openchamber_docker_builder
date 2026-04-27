@@ -12,7 +12,7 @@ RUN bun run build:web
 FROM oven/bun:1.3.13 AS runtime
 WORKDIR /home/openchamber
 
-COPY --from=toolchain package.json package-lock.json /tmp/toolchain/
+COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
@@ -67,9 +67,11 @@ RUN userdel bun \
   && chown -R openchamber:openchamber /home/openchamber /opt/openchamber
 
 COPY --from=cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
-RUN npm ci --omit=dev --ignore-scripts --prefix /tmp/toolchain \
-  && npm install -g --ignore-scripts /tmp/toolchain \
-  && rm -rf /tmp/toolchain /root/.npm
+RUN npm ci --omit=dev --ignore-scripts --prefix /opt/openchamber/toolchain \
+  && for bin in /opt/openchamber/toolchain/node_modules/.bin/*; do \
+    ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
+  done \
+  && rm -rf /root/.npm
 
 COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
 RUN python3 - <<'PY'
