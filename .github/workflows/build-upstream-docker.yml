@@ -71,9 +71,11 @@ jobs:
         id: issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
         run: |
           COUNT="$(gh issue list \
+            --repo "${GH_REPO}" \
             --state all \
             --search "\"${ISSUE_TITLE}\" in:title" \
             --json number \
@@ -84,6 +86,7 @@ jobs:
         if: steps.issue.outputs.exists == '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           ISSUE_TITLE: "Upstream Dockerfile changed: ${{ steps.dockerfile.outputs.blob_sha }}"
           UPSTREAM_COMMIT: ${{ steps.dockerfile.outputs.commit_sha }}
           UPSTREAM_SHORT_COMMIT: ${{ steps.dockerfile.outputs.short_commit_sha }}
@@ -103,6 +106,7 @@ jobs:
           EOF
 
           gh issue create \
+            --repo "${GH_REPO}" \
             --title "${ISSUE_TITLE}" \
             --body-file issue-body.md
 
