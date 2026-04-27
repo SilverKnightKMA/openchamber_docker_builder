@@ -68,6 +68,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   zip \
   && ln -sf /usr/bin/batcat /usr/local/bin/bat \
   && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+  && ln -sf /usr/bin/python3 /usr/local/bin/python \
   && chmod +x /usr/local/bin/install-release-tools \
   && rm -rf /var/lib/apt/lists/*
 
