@@ -45,7 +45,7 @@ The sample persists configuration, authentication, SSH state, cloudflared state,
 Default image name:
 
 ```text
-ghcr.io/silverknightkma/openchamber_docker_builder:latest
+ghcr.io/silverknightkma/openchamber:latest
 ```
 
 ## Persisted directories

@@ -33,7 +33,7 @@ on:
 env:
   UPSTREAM_REPO: openchamber/openchamber
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/openchamber
 
 jobs:
   build-main:

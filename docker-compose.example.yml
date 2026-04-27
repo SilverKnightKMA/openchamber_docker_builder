@@ -1,6 +1,6 @@
 services:
   openchamber:
-    image: ghcr.io/silverknightkma/openchamber_docker_builder:latest
+    image: ghcr.io/silverknightkma/openchamber:latest
     container_name: openchamber
     ports:
       - "3000:3000"
