@@ -5,6 +5,24 @@ permissions:
   packages: write
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Dockerfile.dockerfile
+      - package.json
+      - package-lock.json
+      - go.mod
+      - go.sum
+      - tools.go
+      - tools/release-tools.json
+      - scripts/install-release-tools.sh
+      - scripts/openchamber-dind-entrypoint.sh
+      - scripts/update-release-tools.mjs
+      - scripts/validate-release-tools.mjs
+      - .github/workflows/build-upstream-main.yml
+      - .github/workflows/build-upstream-release.yml
+      - .github/workflows/update-release-tools.yml
   push:
     branches:
       - main
@@ -107,6 +125,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -114,6 +133,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check whether upstream main image already exists
+        if: github.event_name != 'pull_request'
         id: existing
         run: |
           if docker manifest inspect "${{ steps.tags.outputs.check_tag }}" > /dev/null 2>&1; then
@@ -124,18 +144,18 @@ jobs:
           fi
 
       - name: Set up Docker Buildx
-        if: steps.existing.outputs.exists != 'true'
+        if: github.event_name == 'pull_request' || steps.existing.outputs.exists != 'true'
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and push upstream main image
-        if: steps.existing.outputs.exists != 'true'
+      - name: Build upstream main image
+        if: github.event_name == 'pull_request' || steps.existing.outputs.exists != 'true'
         uses: docker/build-push-action@v7
         with:
           context: upstream
           file: builder/Dockerfile.dockerfile
           build-contexts: |
             toolchain=builder
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.tags.outputs.tags }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
@@ -148,7 +168,10 @@ jobs:
 
       - name: Summary
         run: |
-          if [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "## Build validated" >> "$GITHUB_STEP_SUMMARY"
+            echo "PR validation built upstream main image without pushing." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
             echo "## Build skipped" >> "$GITHUB_STEP_SUMMARY"
             echo "${{ steps.tags.outputs.check_tag }} already exists." >> "$GITHUB_STEP_SUMMARY"
           else
