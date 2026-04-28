@@ -113,6 +113,7 @@ COPY --from=uv-bin /uv /uvx /usr/local/bin/
 COPY --from=go-runtime /usr/local/go /usr/local/go
 COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/
+COPY --from=docker-dind /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
 RUN printf '%s\n' \
   '#!/usr/bin/env sh' \
   'echo "[xdg-open] ignored in headless container: $*" >&2' \

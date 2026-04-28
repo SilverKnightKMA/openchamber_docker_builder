@@ -69,7 +69,7 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
 - Base images are pinned by digest. `cloudflared` intentionally uses `latest@sha256:...`; Dependabot refreshes the digest by PR.
 - Runtime user is `openchamber` with UID/GID `1000`; compose volume ownership assumes this.
 - Docker-in-Docker is opt-in via `ENABLE_DIND=true`; compose must also enable `privileged: true` and persist `/var/lib/docker` plus `/var/lib/containerd` if inner Docker state should survive recreation.
-- DinD uses a V1-style wrapper and `docker:dind` binaries, not systemd. Preserve upstream `/home/openchamber/openchamber-entrypoint.sh`; add wrapper behavior outside it.
+- DinD uses a V1-style wrapper and `docker:dind` binaries/plugins, not systemd. Preserve upstream `/home/openchamber/openchamber-entrypoint.sh`; add wrapper behavior outside it. Docker CLI plugins are copied from `/usr/local/libexec/docker/cli-plugins` in the pinned `docker:dind` stage.
 - Core tools are installed outside mounted user paths. User-installed tools belong in persisted home dirs (`~/.npm-global`, `~/.local/pip`, `~/.cargo`, `~/.go`, `~/.bun`).
 - Corepack is not enabled by default. Prefer project-local commands (`bun run`, `npm exec`, `npx`, `pnpm exec`) inside workspaces.
 - `oh-my-opencode` runtime install goes to `/opt/openchamber/npm-global` unless `OMO_NPM_PREFIX`/`OMO_NPM_PACKAGE` override it; do not depend on persisted `~/.npm-global` for core runtime behavior.

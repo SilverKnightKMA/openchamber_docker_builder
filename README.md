@@ -47,7 +47,7 @@ The sample persists configuration, authentication, SSH state, cloudflared state,
 
 ### Optional Docker-in-Docker
 
-The image includes Docker client/daemon binaries copied from the pinned `docker:dind` image. Docker-in-Docker is disabled by default. Enable it only for trusted deployments because it requires a privileged container.
+The image includes Docker client/daemon binaries and Docker CLI plugins (`docker compose`, `docker buildx`) copied from the pinned `docker:dind` image. Docker-in-Docker is disabled by default. Enable it only for trusted deployments because it requires a privileged container.
 
 To enable inner Docker in `docker-compose.yml`:
 
@@ -66,7 +66,7 @@ services:
       # - ./dockerd-daemon.example.json:/etc/docker/daemon.json:ro
 ```
 
-`ENABLE_DIND=true` starts `dockerd` before the upstream OpenChamber entrypoint. If the variable is unset, the wrapper skips daemon startup and behaves like the normal image. Keep Docker state on dedicated mounts; `/var/lib/docker` can grow quickly.
+`ENABLE_DIND=true` starts `dockerd` before the upstream OpenChamber entrypoint. If the variable is unset, the wrapper skips daemon startup and behaves like the normal image. Keep Docker state on dedicated mounts; `/var/lib/docker` can grow quickly. After deployment, verify Docker support with `docker info`, `docker compose version`, and `docker buildx version` inside the container.
 
 After starting the container, review this operational checklist:
 
