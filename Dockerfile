@@ -4,7 +4,7 @@ FROM cloudflare/cloudflared:latest@sha256:64f4e9d6a867f71d89ae3318460bb3c604923b
 
 FROM ghcr.io/astral-sh/uv:0.11.8@sha256:5cbec7ab7753a6c763c6dda6a38f085c8c585ec9f53cfb4e7368b79ca30bc881 AS uv-bin
 
-FROM golang:1.25.9-bookworm@sha256:1a1408bf8d2d3077f9508880caf0e8bb0fde195fe3c890e7ea480dfb66dc7827 AS go-runtime
+FROM golang:1.26.2-bookworm@sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19 AS go-runtime
 
 FROM oven/bun:1.3.13@sha256:87416c977a612a204eb54ab9f3927023c2a3c971f4f345a01da08ea6262ae30e AS app-builder
 ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
