@@ -13,6 +13,9 @@ services:
       OPENCODE_CONFIG_DIR: /home/openchamber/.config/opencode
       GIT_CONFIG_GLOBAL: /home/openchamber/.config/git/config
       UI_PASSWORD: change-me
+      # Enable Docker-in-Docker for trusted deployments only. Requires privileged: true
+      # plus the /var/lib/docker and /var/lib/containerd mounts below.
+      # ENABLE_DIND: "true"
       # OH_MY_OPENCODE: "true"
     restart: unless-stopped
     volumes:
@@ -35,3 +38,12 @@ services:
       - ./data/nvim/share:/home/openchamber/.local/share/nvim
       - ./data/nvim/state:/home/openchamber/.local/state/nvim
       - ./data/cloudflared:/home/openchamber/.cloudflared
+      # Docker-in-Docker state. Uncomment with ENABLE_DIND=true.
+      # - ./data/docker:/var/lib/docker
+      # - ./data/containerd:/var/lib/containerd
+      # Optional daemon network config for avoiding bridge CIDR collisions.
+      # - ./dockerd-daemon.example.json:/etc/docker/daemon.json:ro
+    # Docker-in-Docker requires elevated privileges. Leave disabled unless needed.
+    # privileged: true
+    # security_opt:
+    #   - no-new-privileges:false

@@ -2,6 +2,8 @@
 
 FROM cloudflare/cloudflared:latest@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 AS cloudflared
 
+FROM docker:29.1.3-dind@sha256:0dd67a33f5a18b7aeb519dd153b88f9ca6fa402df4d55724e2f327cfe2478523 AS docker-dind
+
 FROM ghcr.io/astral-sh/uv:0.11.8@sha256:3b7b60a81d3c57ef471703e5c83fd4aaa33abcd403596fb22ab07db85ae91347 AS uv-bin
 
 FROM golang:1.26.2-bookworm@sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19 AS go-runtime
@@ -24,6 +26,7 @@ COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
 COPY --from=toolchain go.mod go.sum tools.go /opt/openchamber/go-tools/
 COPY --from=toolchain tools/release-tools.json /opt/openchamber/release-tools.json
 COPY --from=toolchain scripts/install-release-tools.sh /usr/local/bin/install-release-tools
+COPY --from=toolchain scripts/openchamber-dind-entrypoint.sh /usr/local/bin/openchamber-dind-entrypoint
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
@@ -43,7 +46,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   gettext-base \
   iproute2 \
   iputils-ping \
+  iptables \
   jq \
+  kmod \
   less \
   lsof \
   nano \
@@ -80,6 +85,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
   && ln -sf /usr/bin/python3 /usr/local/bin/python \
   && chmod +x /usr/local/bin/install-release-tools \
+  && chmod +x /usr/local/bin/openchamber-dind-entrypoint \
   && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p -m 755 /etc/apt/keyrings \
@@ -94,7 +100,9 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
 # so mounted volumes with 1000:1000 ownership work correctly.
 RUN userdel bun \
   && groupadd -g 1000 openchamber \
+  && groupadd docker \
   && useradd -u 1000 -g 1000 -m -s /bin/bash openchamber \
+  && usermod -aG docker openchamber \
   && mkdir -p /etc/sudoers.d \
   && mkdir -p /opt/openchamber/npm-global \
   && printf 'openchamber ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/openchamber \
@@ -104,6 +112,7 @@ RUN userdel bun \
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
 COPY --from=go-runtime /usr/local/go /usr/local/go
 COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/
 RUN printf '%s\n' \
   '#!/usr/bin/env sh' \
   'echo "[xdg-open] ignored in headless container: $*" >&2' \
@@ -160,6 +169,7 @@ USER openchamber
 
 ENV HOME=/home/openchamber
 ENV NODE_ENV=production
+ENV DOCKER_TLS_CERTDIR=
 ENV NPM_CONFIG_PREFIX=/home/openchamber/.npm-global
 ENV BUN_INSTALL=/home/openchamber/.bun
 ENV CARGO_HOME=/home/openchamber/.cargo
@@ -186,6 +196,10 @@ RUN mkdir -p \
   /home/openchamber/workspaces \
   && npm config set prefix /home/openchamber/.npm-global
 
+VOLUME ["/var/lib/docker", "/var/lib/containerd"]
+
 EXPOSE 3000
 
-ENTRYPOINT ["sh", "/home/openchamber/openchamber-entrypoint.sh"]
+USER root
+
+ENTRYPOINT ["/usr/local/bin/openchamber-dind-entrypoint"]

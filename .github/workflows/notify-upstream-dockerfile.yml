@@ -77,7 +77,7 @@ jobs:
           - Commit subject: ${UPSTREAM_SUBJECT}
           - Dockerfile: https://github.com/${UPSTREAM_REPO}/blob/${UPSTREAM_COMMIT}/Dockerfile
 
-          Review whether \`builder/Dockerfile\` behavior should be updated to match upstream Dockerfile changes.
+          Review whether \`builder/Dockerfile.dockerfile\` behavior should be updated to match upstream Dockerfile changes.
           EOF
 
           gh issue create \

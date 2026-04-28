@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - Dockerfile
+      - Dockerfile.dockerfile
       - package.json
       - package-lock.json
       - go.mod
@@ -17,6 +17,7 @@ on:
       - tools.go
       - tools/release-tools.json
       - scripts/install-release-tools.sh
+      - scripts/openchamber-dind-entrypoint.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
       - .github/workflows/build-upstream-main.yml
@@ -54,7 +55,7 @@ jobs:
         working-directory: builder
         run: |
           files=(
-            Dockerfile
+            Dockerfile.dockerfile
             package.json
             package-lock.json
             go.mod
@@ -62,6 +63,7 @@ jobs:
             tools.go
             tools/release-tools.json
             scripts/install-release-tools.sh
+            scripts/openchamber-dind-entrypoint.sh
             scripts/update-release-tools.mjs
             scripts/validate-release-tools.mjs
             .github/workflows/build-upstream-main.yml
@@ -117,9 +119,11 @@ jobs:
         run: |
           IMAGE="${REGISTRY}/$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
           VERSION_TAG="${{ steps.release.outputs.tag }}-b${{ steps.builder_scope.outputs.builder_scope_short_sha }}"
-          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
-          echo "tags=${IMAGE}:${{ steps.release.outputs.tag }},${IMAGE}:stable,${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
-          echo "check_tag=${IMAGE}:${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          {
+            echo "version_tag=${VERSION_TAG}"
+            echo "tags=${IMAGE}:${{ steps.release.outputs.tag }},${IMAGE}:stable,${IMAGE}:${VERSION_TAG}"
+            echo "check_tag=${IMAGE}:${VERSION_TAG}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -147,7 +151,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: upstream
-          file: builder/Dockerfile
+          file: builder/Dockerfile.dockerfile
           build-contexts: |
             toolchain=builder
           push: true

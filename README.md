@@ -4,19 +4,19 @@ Builder-owned Docker packaging for upstream [`openchamber/openchamber`](https://
 
 ## What this repository provides
 
-- A root `Dockerfile` intended to be used with the upstream repository as the Docker build context.
+- A root `Dockerfile.dockerfile` intended to be used with the upstream repository as the Docker build context.
 - A `docker-compose.example.yml` sample for persistent local/containerized usage.
 - A GitHub Actions workflow that checks out both this builder repository and the upstream source before publishing images.
 
 ## Local build
 
-This Dockerfile is designed to run from the upstream source tree while referencing the packaging files from this repository.
+This builder Dockerfile is named `Dockerfile.dockerfile` so Dockerfile LSP tools that only match by extension can attach without unsafe extensionless-file workarounds. It is designed to run from the upstream source tree while referencing the packaging files from this repository.
 
 Example from a parent directory containing both repos:
 
 ```bash
 docker build \
-  -f open_chamber_docker/Dockerfile \
+  -f open_chamber_docker/Dockerfile.dockerfile \
   --build-context toolchain=open_chamber_docker \
   -t openchamber:local \
   openchamber
@@ -44,6 +44,29 @@ docker compose up -d
 ```
 
 The sample persists configuration, authentication, SSH state, cloudflared state, workspaces, editor state, and user-installed tools so the container can be recreated without losing developer environment setup.
+
+### Optional Docker-in-Docker
+
+The image includes Docker client/daemon binaries copied from the pinned `docker:dind` image. Docker-in-Docker is disabled by default. Enable it only for trusted deployments because it requires a privileged container.
+
+To enable inner Docker in `docker-compose.yml`:
+
+```yaml
+services:
+  openchamber:
+    privileged: true
+    security_opt:
+      - no-new-privileges:false
+    environment:
+      ENABLE_DIND: "true"
+    volumes:
+      - ./data/docker:/var/lib/docker
+      - ./data/containerd:/var/lib/containerd
+      # Optional: avoid bridge CIDR collisions with host or VPN networks.
+      # - ./dockerd-daemon.example.json:/etc/docker/daemon.json:ro
+```
+
+`ENABLE_DIND=true` starts `dockerd` before the upstream OpenChamber entrypoint. If the variable is unset, the wrapper skips daemon startup and behaves like the normal image. Keep Docker state on dedicated mounts; `/var/lib/docker` can grow quickly.
 
 After starting the container, review this operational checklist:
 
@@ -93,9 +116,39 @@ The exact baked npm tool list and versions live in `package.json`/`package-lock.
 
 Release-managed standalone binaries live in `tools/release-tools.json` and are installed only after verifying an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. This includes `yq`, `actionlint`, `marksman`, `hadolint`, and `ruff`. Tools without an authoritative release binary/checksum path are not baked through this mechanism; `tokei` is intentionally omitted for now because its current GitHub release metadata does not provide an installable Linux binary with a matching authoritative checksum path.
 
+`marksman` is baked into `/usr/local/bin`, but OpenCode does not currently register Markdown LSP support from installed binaries alone. After deploying or recreating a persisted OpenCode config volume, ensure the mounted `~/.config/opencode/opencode.json` contains an explicit custom LSP entry:
+
+```json
+{
+  "lsp": {
+    "marksman": {
+      "command": ["marksman", "server"],
+      "extensions": [".md", ".markdown"]
+    }
+  }
+}
+```
+
+`docker-langserver` is also baked into `/usr/local/bin`. The builder Dockerfile is intentionally named `Dockerfile.dockerfile` so current oh-my-opencode LSP tools can match it via the `.dockerfile` extension. Keep the normal Dockerfile LSP entry in the mounted config and do not add an empty-string extension workaround; that can route every extensionless file to Dockerfile LSP.
+
+```json
+{
+  "lsp": {
+    "dockerfile": {
+      "command": ["docker-langserver", "--stdio"],
+      "extensions": [".dockerfile", "Dockerfile"]
+    }
+  }
+}
+```
+
+Do not bake this file directly into `/home/openchamber/.config/opencode`; compose mounts that directory from `./data/config/opencode` and will hide image contents. Merge entries into the mounted config instead, preserving any user/provider settings.
+
 `bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
 
 `svelte-language-server` is also pinned and Dependabot-managed. Its current dependency tree includes known moderate Svelte SSR advisories; this is accepted because the language server uses Svelte for local source analysis rather than serving SSR HTML, so the vulnerable web-rendering code paths are not exposed by this container image.
+
+`tools.go` is a Go tool manifest guarded by `//go:build tools`. It intentionally imports command packages such as `golang.org/x/tools/gopls`, so normal `go list ./...` matches no packages and `go list -tags=tools` can report command-package import errors. Validate the manifest with `go list -tags=tools -e -json .` or by running the Dockerfile `go install` steps, not by treating `tools.go` as application code.
 
 ## Persisting auth and user-installed tools
 
