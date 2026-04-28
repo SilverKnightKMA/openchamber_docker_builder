@@ -64,10 +64,10 @@ jobs:
           trusted=false
           reason="PR is not from a trusted automation source"
 
-          if [ "${PR_AUTHOR}" = "dependabot[bot]" ]; then
+          if [ "${PR_AUTHOR}" = "dependabot[bot]" ] || [ "${PR_AUTHOR}" = "app/dependabot" ]; then
             trusted=true
             reason="Dependabot PR"
-          elif [ "${PR_AUTHOR}" = "github-actions[bot]" ] && [ "${PR_HEAD_REF}" = "automated/update-release-tools" ]; then
+          elif { [ "${PR_AUTHOR}" = "github-actions[bot]" ] || [ "${PR_AUTHOR}" = "app/github-actions" ]; } && [ "${PR_HEAD_REF}" = "automated/update-release-tools" ]; then
             trusted=true
             reason="release tool update workflow PR"
           fi
