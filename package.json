@@ -4,8 +4,7 @@
   "description": "Pinned npm toolchain packages baked into the OpenChamber Docker builder image.",
   "license": "MIT",
   "scripts": {
-    "validate:release-tools": "node scripts/validate-release-tools.mjs",
-    "update:image-digests": "node scripts/update-image-digests.mjs"
+    "validate:release-tools": "node scripts/validate-release-tools.mjs"
   },
   "dependencies": {
     "@ast-grep/cli": "0.42.1",

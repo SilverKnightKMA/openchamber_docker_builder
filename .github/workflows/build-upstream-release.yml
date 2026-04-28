@@ -19,11 +19,9 @@ on:
       - scripts/install-release-tools.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
-      - scripts/update-image-digests.mjs
       - .github/workflows/build-upstream-main.yml
       - .github/workflows/build-upstream-release.yml
       - .github/workflows/update-release-tools.yml
-      - .github/workflows/update-image-digests.yml
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
@@ -66,11 +64,9 @@ jobs:
             scripts/install-release-tools.sh
             scripts/update-release-tools.mjs
             scripts/validate-release-tools.mjs
-            scripts/update-image-digests.mjs
             .github/workflows/build-upstream-main.yml
             .github/workflows/build-upstream-release.yml
             .github/workflows/update-release-tools.yml
-            .github/workflows/update-image-digests.yml
           )
 
           for file in "${files[@]}"; do

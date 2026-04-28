@@ -24,14 +24,14 @@ docker build \
 
 Key behavior:
 
-- Base image versions are pinned in `Dockerfile`. Supported `FROM` tags are updated by Dependabot, while this repository's image-digest workflow refreshes pinned `linux/amd64` digests for allowlisted image references.
+- Base image versions and pinned Docker image digests are updated by Dependabot where supported.
 - Build uses the full upstream source tree as context to avoid Bun workspace/frozen-lockfile failures caused by partial manifest copying.
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
 - Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
 - `oh-my-opencode` is optional; when `OH_MY_OPENCODE=true`, the entrypoint installs it on demand into an internal, non-mounted npm prefix instead of `~/.npm-global`.
 - Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
-- `cloudflared` intentionally tracks `cloudflare/cloudflared:latest` through a pinned `linux/amd64` digest that is refreshed by pull request rather than at container runtime.
+- `cloudflared` intentionally tracks `cloudflare/cloudflared:latest` through a pinned digest that is refreshed by Dependabot pull request rather than at container runtime.
 - Corepack is not enabled by default. The baked `pnpm` binary is a fallback; project-local package-manager commands remain preferred inside workspaces.
 
 ## Docker Compose example
@@ -85,7 +85,7 @@ The runtime image exposes `3000` and includes PATH entries for persisted tool lo
 
 The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
 
-Source images for Bun, Go, `uv`, and `cloudflared` are pinned by tag plus `linux/amd64` digest. Bun and Go use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through the image-digest workflow.
+Source images for Bun, Go, `uv`, and `cloudflared` are pinned by tag plus digest. Bun and Go use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through Dependabot PRs.
 
 Go is copied from an intentionally pinned official Go image instead of Debian's `golang-go` package so the runtime `go` command is compatible with this repository's Go tool manifest. `uv` is copied from the official Astral image instead of being installed through system Python.
 
