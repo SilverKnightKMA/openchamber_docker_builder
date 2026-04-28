@@ -114,35 +114,42 @@ COPY --from=go-runtime /usr/local/go /usr/local/go
 COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/
 COPY --from=docker-dind /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
+
 RUN printf '%s\n' \
   '#!/usr/bin/env sh' \
   'echo "[xdg-open] ignored in headless container: $*" >&2' \
   'exit 0' \
   > /usr/local/bin/xdg-open \
   && chmod +x /usr/local/bin/xdg-open
+
 RUN npm ci --omit=dev --prefix /opt/openchamber/toolchain \
   && for bin in /opt/openchamber/toolchain/node_modules/.bin/*; do \
     ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
   done \
   && rm -rf /root/.npm
+
 RUN install-release-tools /opt/openchamber/release-tools.json \
   && rm -f /usr/local/bin/install-release-tools
+
 RUN cd /opt/openchamber/go-tools \
   && GOBIN=/usr/local/bin go install mvdan.cc/sh/v3/cmd/shfmt \
   && GOBIN=/usr/local/bin go install golang.org/x/tools/gopls \
   && rm -rf /root/.cache/go-build /root/go/pkg/mod/cache
 
 COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
+
 RUN python3 - <<'PY'
 from pathlib import Path
 
 path = Path('/home/openchamber/openchamber-entrypoint.sh')
 text = path.read_text()
-old = '''    echo "[entrypoint] npm installing oh-my-opencode..."
+
+old_omo = '''    echo "[entrypoint] npm installing oh-my-opencode..."
     npm install -g oh-my-opencode
 
 '''
-new = '''    OMO_NPM_PREFIX="${OMO_NPM_PREFIX:-/opt/openchamber/npm-global}"
+
+new_omo = '''    OMO_NPM_PREFIX="${OMO_NPM_PREFIX:-/opt/openchamber/npm-global}"
     OMO_NPM_PACKAGE="${OMO_NPM_PACKAGE:-oh-my-opencode}"
     export PATH="${OMO_NPM_PREFIX}/bin:${PATH}"
 
@@ -153,9 +160,34 @@ new = '''    OMO_NPM_PREFIX="${OMO_NPM_PREFIX:-/opt/openchamber/npm-global}"
     fi
 
 '''
-if old not in text:
+
+old_openchamber_start = '''set -- bun packages/web/bin/cli.js
+if [ -n "${UI_PASSWORD:-}" ]; then
+  set -- "$@" --ui-password "$UI_PASSWORD"
+fi
+"$@"
+
+exec bun packages/web/bin/cli.js logs
+'''
+
+new_openchamber_start = '''set -- bun packages/web/bin/cli.js serve --foreground
+if [ -n "${UI_PASSWORD:-}" ]; then
+  set -- "$@" --ui-password "$UI_PASSWORD"
+fi
+
+exec "$@"
+'''
+
+if old_omo not in text:
     raise SystemExit('Expected oh-my-opencode runtime install block not found')
-path.write_text(text.replace(old, new))
+
+if old_openchamber_start not in text:
+    raise SystemExit('Expected OpenChamber daemon/logs entrypoint block not found')
+
+text = text.replace(old_omo, new_omo)
+text = text.replace(old_openchamber_start, new_openchamber_start)
+
+path.write_text(text)
 PY
 
 COPY --from=app-builder /app/node_modules ./node_modules
