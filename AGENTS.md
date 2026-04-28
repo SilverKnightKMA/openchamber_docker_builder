@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-04-28 UTC
-**Commit:** d14e0e1
+**Commit:** 695a53b
 **Branch:** main
 
 ## OVERVIEW
@@ -33,8 +33,8 @@ open_chamber_docker/
 | Go-based tools | `go.mod`, `go.sum`, `tools.go` | `//go:build tools`; used for `gopls` and `shfmt` installation. |
 | Standalone binary tools | `tools/release-tools.json` | `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`; all SHA-256 pinned. |
 | Release tool maintenance | `scripts/update-release-tools.mjs`, `scripts/validate-release-tools.mjs`, `scripts/install-release-tools.sh` | Update manifest, validate schema/checksums, install binaries. |
-| Main image publishing | `.github/workflows/build-upstream-main.yml` | Checks out builder + upstream, tags `main-u{upstream}-b{builder}`. |
-| Release image publishing | `.github/workflows/build-upstream-release.yml` | Resolves latest upstream release through `gh api`. |
+| Main image publishing | `.github/workflows/build-upstream-main.yml` | Checks out builder + upstream, tags `main-u{upstream}-b{builder}`, skips if tag already exists. |
+| Release image publishing | `.github/workflows/build-upstream-release.yml` | Resolves latest upstream release through `gh api`; tags `{release}-b{builder}` plus `stable`. |
 | Tool update PRs | `.github/workflows/update-release-tools.yml` | Weekly Node 24 job; creates `automated/update-release-tools` PRs. |
 | Secret scanning | `.github/workflows/gitleaks.yml` | CI gitleaks action. |
 | Upstream Dockerfile drift | `.github/workflows/notify-upstream-dockerfile.yml` | Opens notification issue when upstream Dockerfile changes. |
@@ -96,8 +96,10 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
 
 ## UNIQUE STYLES
 
-- CI computes a builder-scope fingerprint from packaging files and embeds short SHA in image tags: `main-u{upstream_sha}-b{builder_scope_sha}`.
+- CI computes a builder-scope fingerprint from packaging files and embeds short SHA in image tags: `main-u{upstream_sha}-b{builder_scope_sha}` or `{release_tag}-b{builder_scope_sha}`.
 - Build workflows skip Docker build/push when the computed image tag already exists in GHCR.
+- `update-release-tools.yml` writes branch `automated/update-release-tools` with title `chore: update release-managed tools` and labels `automated`, `dependencies`.
+- `.github/workflows/notify-upstream-dockerfile.yml` watches upstream Dockerfile blob SHA and opens notification issues; it does not sync upstream Dockerfile content.
 - SECURITY.md documents accepted LSP dependency advisories; keep security rationale there instead of duplicating it in README.
 - `tools.go` exists only to keep CLI tool dependencies (`gopls`, `shfmt`) pinned through Go modules.
 
@@ -130,9 +132,9 @@ docker compose up -d
 
 ## NOTES
 
-- `coder-main.zip` was used as temporary reference material for DinD research and is not part of the repo state.
 - Runtime Markdown LSP was enabled in the current mounted config by adding `lsp.marksman` to `/home/openchamber/.config/opencode/opencode.json`; backup created as `opencode.json.backup-markdown-lsp-20260428T092205Z`.
 - Runtime Dockerfile LSP standard config was added to `/home/openchamber/.config/opencode/opencode.json`; the rejected empty-extension workaround was removed. Backups created as `opencode.json.backup-dockerfile-lsp-20260428T104040Z`, `opencode.json.backup-dockerfile-lsp-empty-ext-20260428T104115Z`, and `opencode.json.backup-remove-dockerfile-empty-ext-20260428T104400Z`.
 - Optional DinD support was derived from `coder-main.zip`: V1 direct `dockerd-entrypoint.sh` pattern was chosen over V2 systemd to preserve OpenChamber's upstream entrypoint model.
-- Existing discovery found no prior `AGENTS.md` or `CLAUDE.md` files.
-- Some background exploration agents failed with transient API stream errors during generation; successful retry agents plus direct file reads/grep supplied the facts above.
+- Latest `/init-deep` discovery found this repo remains shallow: 17 non-ignored project files by `rg --files`, one root `AGENTS.md`, and no `CLAUDE.md`.
+- Scoring kept hierarchy root-only. `scripts/` has 4 files (~310 lines) and `.github/workflows/` has 6 workflows (~500 lines); both are covered by root guidance and fall below the child `AGENTS.md` threshold.
+- Direct discovery used `rg`, LSP document symbols for `scripts/*.mjs`, AST-grep over maintenance scripts, and 8 parallel explore agents for structure, entry points, conventions, anti-patterns, CI, validation, scripts, and workflows.
