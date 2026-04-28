@@ -62,16 +62,16 @@ services:
     volumes:
       - ./data/docker:/var/lib/docker
       - ./data/containerd:/var/lib/containerd
-      # Optional: avoid bridge CIDR collisions with host or VPN networks.
+      # Optional: avoid inner Docker bridge CIDR collisions with host or VPN networks.
       # - ./dockerd-daemon.example.json:/etc/docker/daemon.json:ro
 ```
 
-`ENABLE_DIND=true` starts `dockerd` before the upstream OpenChamber entrypoint. If the variable is unset, the wrapper skips daemon startup and behaves like the normal image. Keep Docker state on dedicated mounts; `/var/lib/docker` can grow quickly. After deployment, verify Docker support with `docker info`, `docker compose version`, and `docker buildx version` inside the container.
+`ENABLE_DIND=true` starts `dockerd` before the upstream OpenChamber entrypoint. If the variable is unset, the wrapper skips daemon startup and behaves like the normal image. Keep Docker state on dedicated mounts; `/var/lib/docker` can grow quickly. `DOCKER_TLS_CERTDIR` is intentionally empty because the daemon is only exposed through the local Unix socket inside the container. If startup is slow on constrained hosts, raise `DIND_STARTUP_TIMEOUT_SECONDS` from the default 60 seconds.
 
-After starting the container, review this operational checklist:
+The optional daemon config is not required for normal operation. Mount it only if the default inner Docker bridge subnet (`172.17.0.0/16`) conflicts with your host, VPN, LAN, or external Docker network ranges; adjust `bip` and `default-address-pools` to non-conflicting private ranges before deployment. After deployment, verify Docker support with `docker info`, `docker compose version`, and `docker buildx version` inside the container.
 
-- Change `UI_PASSWORD` from the example value before exposing the web UI.
-- If OpenChamber is published through a reverse proxy, enforce HTTPS, access control, and any additional authentication at the reverse proxy layer.
+Before exposing the service, review `SECURITY.md`. After starting the container, use this operational checklist:
+
 - Ensure the persisted `./data` directory is writable by the container user (`UID 1000`): `sudo chown -R 1000:1000 ./data`.
 - Authenticate GitHub CLI inside the container with `gh auth login`, then verify with `gh auth status`.
 - Configure Git identity inside the container with `git config --global user.name` and `git config --global user.email`.
@@ -114,7 +114,7 @@ Go is copied from an intentionally pinned official Go image instead of Debian's 
 
 The exact baked npm tool list and versions live in `package.json`/`package-lock.json` so Dependabot can update them via normal dependency PRs.
 
-Release-managed standalone binaries live in `tools/release-tools.json` and are installed only after verifying an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. This includes `yq`, `actionlint`, `marksman`, `hadolint`, and `ruff`. Tools without an authoritative release binary/checksum path are not baked through this mechanism; `tokei` is intentionally omitted for now because its current GitHub release metadata does not provide an installable Linux binary with a matching authoritative checksum path.
+Release-managed standalone binaries live in `tools/release-tools.json` and are installed only after verifying an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. This includes `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, and `scc`. `scc` is the baked code statistics counter; `tokei` remains omitted because its current GitHub release metadata does not provide an installable Linux binary with a matching authoritative checksum path.
 
 `marksman` is baked into `/usr/local/bin`, but OpenCode does not currently register Markdown LSP support from installed binaries alone. After deploying or recreating a persisted OpenCode config volume, ensure the mounted `~/.config/opencode/opencode.json` contains an explicit custom LSP entry:
 
@@ -144,9 +144,7 @@ Release-managed standalone binaries live in `tools/release-tools.json` and are i
 
 Do not bake this file directly into `/home/openchamber/.config/opencode`; compose mounts that directory from `./data/config/opencode` and will hide image contents. Merge entries into the mounted config instead, preserving any user/provider settings.
 
-`bash-language-server` is pinned and Dependabot-managed through `package.json`. Its current dependency tree includes a known high-severity `minimatch` ReDoS advisory through `editorconfig`; this is accepted for the remote-editor use case because the impact is limited to potential LSP CPU denial-of-service when opening untrusted shell workspaces, not direct OpenChamber/OpenCode credential exposure or remote code execution.
-
-`svelte-language-server` is also pinned and Dependabot-managed. Its current dependency tree includes known moderate Svelte SSR advisories; this is accepted because the language server uses Svelte for local source analysis rather than serving SSR HTML, so the vulnerable web-rendering code paths are not exposed by this container image.
+Accepted-risk notes for bundled tool dependency advisories live in `SECURITY.md` rather than this operational README.
 
 `tools.go` is a Go tool manifest guarded by `//go:build tools`. It intentionally imports command packages such as `golang.org/x/tools/gopls`, so normal `go list ./...` matches no packages and `go list -tags=tools` can report command-package import errors. Validate the manifest with `go list -tags=tools -e -json .` or by running the Dockerfile `go install` steps, not by treating `tools.go` as application code.
 

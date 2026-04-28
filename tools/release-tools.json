@@ -48,6 +48,15 @@
       "checksumAsset": "ruff-x86_64-unknown-linux-gnu.tar.gz.sha256",
       "checksumFormat": "sha256sum",
       "sha256": "5e26a7811f7db364864ace00cced53003556a37b63f3c987e340b18207776f1c"
+    },
+    {
+      "name": "scc",
+      "repo": "boyter/scc",
+      "version": "v3.7.0",
+      "asset": "scc_Linux_x86_64.tar.gz",
+      "checksumAsset": "checksums.txt",
+      "checksumFormat": "sha256sum",
+      "sha256": "3d9d65b00ca874c2b29151abe7e1480736f5229edc3ce8e4b2791460cdfabf5a"
     }
   ]
 }

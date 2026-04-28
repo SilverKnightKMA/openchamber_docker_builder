@@ -31,7 +31,7 @@ open_chamber_docker/
 | Optional Docker-in-Docker | `Dockerfile.dockerfile`, `scripts/openchamber-dind-entrypoint.sh`, `dockerd-daemon.example.json` | V1-style opt-in DinD; no systemd. |
 | NPM tools baked into image | `package.json`, `package-lock.json` | Dependencies only; no app package scripts except release-tool validation. |
 | Go-based tools | `go.mod`, `go.sum`, `tools.go` | `//go:build tools`; used for `gopls` and `shfmt` installation. |
-| Standalone binary tools | `tools/release-tools.json` | `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`; all SHA-256 pinned. |
+| Standalone binary tools | `tools/release-tools.json` | `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`; all SHA-256 pinned. |
 | Release tool maintenance | `scripts/update-release-tools.mjs`, `scripts/validate-release-tools.mjs`, `scripts/install-release-tools.sh` | Update manifest, validate schema/checksums, install binaries. |
 | Main image publishing | `.github/workflows/build-upstream-main.yml` | Checks out builder + upstream, tags `main-u{upstream}-b{builder}`. |
 | Release image publishing | `.github/workflows/build-upstream-release.yml` | Resolves latest upstream release through `gh api`. |
@@ -65,10 +65,11 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
   ```
 
 - The full upstream source tree must remain the Docker context. Do not replace with partial manifest copies; Bun workspace/frozen-lockfile resolution depends on the full upstream context.
-- `toolchain=builder` is the named build context for this repo. `Dockerfile.dockerfile` copies package manifests, Go tool manifests, release-tool manifest, and install script from it.
+- `toolchain` is the named build context for this repo. Local examples map it to `open_chamber_docker`; CI maps it to the checked-out `builder` directory. `Dockerfile.dockerfile` copies package manifests, Go tool manifests, release-tool manifest, and install script from it.
 - Base images are pinned by digest. `cloudflared` intentionally uses `latest@sha256:...`; Dependabot refreshes the digest by PR.
 - Runtime user is `openchamber` with UID/GID `1000`; compose volume ownership assumes this.
 - Docker-in-Docker is opt-in via `ENABLE_DIND=true`; compose must also enable `privileged: true` and persist `/var/lib/docker` plus `/var/lib/containerd` if inner Docker state should survive recreation.
+- `dockerd-daemon.example.json` is optional. Use it only to avoid inner Docker bridge/address-pool conflicts with host, VPN, LAN, or external Docker networks; defaults work without it.
 - DinD uses a V1-style wrapper and `docker:dind` binaries/plugins, not systemd. Preserve upstream `/home/openchamber/openchamber-entrypoint.sh`; add wrapper behavior outside it. Docker CLI plugins are copied from `/usr/local/libexec/docker/cli-plugins` in the pinned `docker:dind` stage.
 - Core tools are installed outside mounted user paths. User-installed tools belong in persisted home dirs (`~/.npm-global`, `~/.local/pip`, `~/.cargo`, `~/.go`, `~/.bun`).
 - Corepack is not enabled by default. Prefer project-local commands (`bun run`, `npm exec`, `npx`, `pnpm exec`) inside workspaces.
@@ -90,14 +91,14 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
 - Do not remove the dummy `xdg-open`; headless container workflows expect it to safely no-op.
 - Do not enable Docker-in-Docker by default. It changes the container security boundary and requires trusted users/workspaces.
 - Do not add systemd unless there is a concrete need for multiple managed services; current DinD support intentionally starts only `dockerd`.
-- Do not change `UI_PASSWORD` defaults into production guidance; README already warns users to change example credentials before exposure.
+- Keep production security guidance in `SECURITY.md`; README should stay focused on operation and link to security policy instead of duplicating it.
 - Do not add subdirectory AGENTS.md files unless a directory grows substantially; current repo is shallow enough for root coverage.
 
 ## UNIQUE STYLES
 
 - CI computes a builder-scope fingerprint from packaging files and embeds short SHA in image tags: `main-u{upstream_sha}-b{builder_scope_sha}`.
 - Build workflows skip Docker build/push when the computed image tag already exists in GHCR.
-- README explicitly documents accepted LSP dependency advisories (`bash-language-server` minimatch ReDoS, Svelte SSR advisories) as remote-editor risk tradeoffs.
+- SECURITY.md documents accepted LSP dependency advisories; keep security rationale there instead of duplicating it in README.
 - `tools.go` exists only to keep CLI tool dependencies (`gopls`, `shfmt`) pinned through Go modules.
 
 ## COMMANDS
@@ -129,7 +130,7 @@ docker compose up -d
 
 ## NOTES
 
-- Untracked `coder-main.zip` was present during generation; do not assume it is part of the repo unless intentionally added.
+- `coder-main.zip` was used as temporary reference material for DinD research and is not part of the repo state.
 - Runtime Markdown LSP was enabled in the current mounted config by adding `lsp.marksman` to `/home/openchamber/.config/opencode/opencode.json`; backup created as `opencode.json.backup-markdown-lsp-20260428T092205Z`.
 - Runtime Dockerfile LSP standard config was added to `/home/openchamber/.config/opencode/opencode.json`; the rejected empty-extension workaround was removed. Backups created as `opencode.json.backup-dockerfile-lsp-20260428T104040Z`, `opencode.json.backup-dockerfile-lsp-empty-ext-20260428T104115Z`, and `opencode.json.backup-remove-dockerfile-empty-ext-20260428T104400Z`.
 - Optional DinD support was derived from `coder-main.zip`: V1 direct `dockerd-entrypoint.sh` pattern was chosen over V2 systemd to preserve OpenChamber's upstream entrypoint model.

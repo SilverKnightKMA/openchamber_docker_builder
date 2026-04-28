@@ -46,6 +46,7 @@ Operators should treat the container as a developer workstation with persisted c
 - Keep persisted config/auth directories owned by the container user (`UID 1000`).
 - Store GitHub CLI auth, SSH keys, OpenCode state, and user-installed tools only in the intended mounted directories.
 - Avoid mounting the Docker socket or cloud credentials unless explicitly needed and understood.
+- Enable privileged Docker-in-Docker only for trusted users and workspaces.
 
 ## Update expectations
 
