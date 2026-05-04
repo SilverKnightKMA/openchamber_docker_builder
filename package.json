@@ -17,7 +17,7 @@
     "pnpm": "10.33.2",
     "prettier": "3.8.3",
     "pyright": "1.1.409",
-    "svelte-language-server": "0.17.30",
+    "svelte-language-server": "0.17.31",
     "typescript": "6.0.3",
     "typescript-language-server": "5.1.3",
     "vscode-langservers-extracted": "4.10.0",
