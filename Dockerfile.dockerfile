@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 
+FROM node:24-bookworm-slim@sha256:03eae3ef7e88a9de535496fb488d67e02b9d96a063a8967bae657744ecd513f2 AS node-runtime
+
 FROM cloudflare/cloudflared:latest@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 AS cloudflared
 
 FROM docker:29.4.1-dind@sha256:c77e5d7912f9b137cc67051fdc2991d8f5ae22c55ddf532bb836dcb693a04940 AS docker-dind
@@ -28,6 +30,14 @@ COPY --from=toolchain tools/release-tools.json /opt/openchamber/release-tools.js
 COPY --from=toolchain scripts/install-release-tools.sh /usr/local/bin/install-release-tools
 COPY --from=toolchain scripts/openchamber-dind-entrypoint.sh /usr/local/bin/openchamber-dind-entrypoint
 
+# Copy Node/npm from pinned official Node image before apt to avoid Debian npm.
+# The node-runtime stage is first so Docker Dependabot can track it.
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=node-runtime /usr/local/include/node /usr/local/include/node
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
   bat \
@@ -54,8 +64,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nano \
   neovim \
   netcat-openbsd \
-  nodejs \
-  npm \
   openssh-client \
   pkg-config \
   procps \
