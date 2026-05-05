@@ -108,9 +108,10 @@ The runtime image exposes `3000` and includes PATH entries for persisted tool lo
 
 The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
 
-Source images for Bun, Go, `uv`, and `cloudflared` are pinned by tag plus digest. Bun and Go use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through Dependabot PRs.
+Source images for Bun, Go, `uv`, `node`, and `cloudflared` are pinned by tag plus digest. Bun, Go, and `node` use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through Dependabot PRs.
 
-Go is copied from an intentionally pinned official Go image instead of Debian's `golang-go` package so the runtime `go` command is compatible with this repository's Go tool manifest. `uv` is copied from the official Astral image instead of being installed through system Python.
+Go is copied from an intentionally pinned official Go image instead of Debian's `golang-go` package so the runtime `go` command is compatible with this repository's Go tool manifest. `uv` is copied from the official Astral image instead of being installed through system Python. `node` and `npm` are copied from the pinned official Node image instead of Debian packages, so Docker Dependabot can track and update them through the Docker image digest. The `node-runtime` stage is intentionally placed first (before all other `FROM` statements) so Dependabot's Docker ecosystem scanner can detect and update it via the standard Docker version pinning workflow.
+
 
 The exact baked npm tool list and versions live in `package.json`/`package-lock.json` so Dependabot can update them via normal dependency PRs.
 
