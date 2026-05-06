@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-28 UTC
-**Commit:** 695a53b
+**Generated:** 2026-05-06 UTC
+**Commit:** 8d1670e
 **Branch:** main
 
 ## OVERVIEW
@@ -38,6 +38,7 @@ open_chamber_docker/
 | Tool update PRs | `.github/workflows/update-release-tools.yml` | Weekly Node 24 job; creates `automated/update-release-tools` PRs. |
 | Secret scanning | `.github/workflows/gitleaks.yml` | CI gitleaks action. |
 | Upstream Dockerfile drift | `.github/workflows/notify-upstream-dockerfile.yml` | Opens notification issue when upstream Dockerfile changes. |
+| Dependency grouping | `.github/dependabot.yml` | One PR per ecosystem (`github-actions`, `docker`, `npm`, `gomod`) via `groups`; no cross-ecosystem merge grouping. |
 
 ## CODE MAP
 
@@ -67,6 +68,7 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
 - The full upstream source tree must remain the Docker context. Do not replace with partial manifest copies; Bun workspace/frozen-lockfile resolution depends on the full upstream context.
 - `toolchain` is the named build context for this repo. Local examples map it to `open_chamber_docker`; CI maps it to the checked-out `builder` directory. `Dockerfile.dockerfile` copies package manifests, Go tool manifests, release-tool manifest, and install script from it.
 - Base images are pinned by digest. `cloudflared` intentionally uses `latest@sha256:...`; Dependabot refreshes the digest by PR.
+- Dependabot groups every ecosystem into a single PR (`all-github-actions`, `all-docker-images`, `all-npm-dependencies`, `all-go-dependencies`) to minimize build churn.
 - Runtime user is `openchamber` with UID/GID `1000`; compose volume ownership assumes this.
 - Docker-in-Docker is opt-in via `ENABLE_DIND=true`; compose must also enable `privileged: true` and persist `/var/lib/docker` plus `/var/lib/containerd` if inner Docker state should survive recreation.
 - `dockerd-daemon.example.json` is optional. Use it only to avoid inner Docker bridge/address-pool conflicts with host, VPN, LAN, or external Docker networks; defaults work without it.
@@ -93,12 +95,15 @@ This is a packaging repo, not an application repo. LSP symbol density is intenti
 - Do not add systemd unless there is a concrete need for multiple managed services; current DinD support intentionally starts only `dockerd`.
 - Keep production security guidance in `SECURITY.md`; README should stay focused on operation and link to security policy instead of duplicating it.
 - Do not add subdirectory AGENTS.md files unless a directory grows substantially; current repo is shallow enough for root coverage.
+- Do not expect cross-ecosystem Dependabot grouping; the built-in grouping boundary is per ecosystem only.
 
 ## UNIQUE STYLES
 
 - CI computes a builder-scope fingerprint from packaging files and embeds short SHA in image tags: `main-u{upstream_sha}-b{builder_scope_sha}` or `{release_tag}-b{builder_scope_sha}`.
+- Builder-scope fingerprinting only covers the packaging files listed in the workflows; upstream app changes do not affect the builder suffix.
 - Build workflows skip Docker build/push when the computed image tag already exists in GHCR.
 - `update-release-tools.yml` writes branch `automated/update-release-tools` with title `chore: update release-managed tools` and labels `automated`, `dependencies`.
+- `auto-merge-pr.yml` enables auto-merge for trusted Dependabot PRs once they carry the `automated` label and are not draft/WIP.
 - `.github/workflows/notify-upstream-dockerfile.yml` watches upstream Dockerfile blob SHA and opens notification issues; it does not sync upstream Dockerfile content.
 - SECURITY.md documents accepted LSP dependency advisories; keep security rationale there instead of duplicating it in README.
 - `tools.go` exists only to keep CLI tool dependencies (`gopls`, `shfmt`) pinned through Go modules.
@@ -137,4 +142,4 @@ docker compose up -d
 - Optional DinD support was derived from `coder-main.zip`: V1 direct `dockerd-entrypoint.sh` pattern was chosen over V2 systemd to preserve OpenChamber's upstream entrypoint model.
 - Latest `/init-deep` discovery found this repo remains shallow: 17 non-ignored project files by `rg --files`, one root `AGENTS.md`, and no `CLAUDE.md`.
 - Scoring kept hierarchy root-only. `scripts/` has 4 files (~310 lines) and `.github/workflows/` has 6 workflows (~500 lines); both are covered by root guidance and fall below the child `AGENTS.md` threshold.
-- Direct discovery used `rg`, LSP document symbols for `scripts/*.mjs`, AST-grep over maintenance scripts, and 8 parallel explore agents for structure, entry points, conventions, anti-patterns, CI, validation, scripts, and workflows.
+- Direct discovery used `rg`, LSP document symbols for `scripts/*.mjs`, AST-grep over maintenance scripts, and 5 explore agents for structure, conventions, anti-patterns, CI, and tests; one entry-point probe failed on tool policy and was replaced by direct search.

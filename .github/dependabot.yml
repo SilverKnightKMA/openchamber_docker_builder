@@ -3,22 +3,30 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     labels:
       - "automated"
       - "dependencies"
     assignees:
       - "SilverKnightKMA"
+    groups:
+      all-github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     labels:
       - "automated"
       - "dependencies"
     assignees:
       - "SilverKnightKMA"
+    groups:
+      all-docker-images:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /
@@ -29,6 +37,10 @@ updates:
       - "dependencies"
     assignees:
       - "SilverKnightKMA"
+    groups:
+      all-npm-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: gomod
     directory: /
@@ -39,3 +51,7 @@ updates:
       - "dependencies"
     assignees:
       - "SilverKnightKMA"
+    groups:
+      all-go-dependencies:
+        patterns:
+          - "*"
