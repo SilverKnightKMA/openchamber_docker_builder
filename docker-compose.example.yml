@@ -16,7 +16,9 @@ services:
       # Enable Docker-in-Docker for trusted deployments only. Requires privileged: true
       # plus the /var/lib/docker and /var/lib/containerd mounts below.
       # ENABLE_DIND: "true"
+      # Enable only one optional oh-my-opencode package at a time.
       # OH_MY_OPENCODE: "true"
+      # OH_MY_OPENCODE_SLIM: "true"
     restart: unless-stopped
     volumes:
       - ./data/config/openchamber:/home/openchamber/.config/openchamber

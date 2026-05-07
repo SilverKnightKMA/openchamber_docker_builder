@@ -151,10 +151,24 @@ old = '''    echo "[entrypoint] npm installing oh-my-opencode..."
 
 '''
 new = '''    OMO_NPM_PREFIX="${OMO_NPM_PREFIX:-/opt/openchamber/npm-global}"
-    OMO_NPM_PACKAGE="${OMO_NPM_PACKAGE:-oh-my-opencode}"
     export PATH="${OMO_NPM_PREFIX}/bin:${PATH}"
 
-    if ! command -v oh-my-opencode >/dev/null 2>&1; then
+    if [ "${OH_MY_OPENCODE:-false}" = "true" ] && [ "${OH_MY_OPENCODE_SLIM:-false}" = "true" ]; then
+      echo "[entrypoint] error: enable only one of OH_MY_OPENCODE=true or OH_MY_OPENCODE_SLIM=true" >&2
+      exit 1
+    fi
+
+    OMO_NPM_PACKAGE=""
+    OMO_NPM_COMMAND=""
+    if [ "${OH_MY_OPENCODE:-false}" = "true" ]; then
+      OMO_NPM_PACKAGE="${OMO_NPM_PACKAGE:-oh-my-opencode}"
+      OMO_NPM_COMMAND="oh-my-opencode"
+    elif [ "${OH_MY_OPENCODE_SLIM:-false}" = "true" ]; then
+      OMO_NPM_PACKAGE="${OMO_NPM_PACKAGE:-oh-my-opencode-slim}"
+      OMO_NPM_COMMAND="oh-my-opencode-slim"
+    fi
+
+    if [ -n "${OMO_NPM_PACKAGE}" ] && ! command -v "${OMO_NPM_COMMAND}" >/dev/null 2>&1; then
       rm -rf "${OMO_NPM_PREFIX}/lib/node_modules/.oh-my-opencode-"*
       echo "[entrypoint] npm installing ${OMO_NPM_PACKAGE} into ${OMO_NPM_PREFIX}..."
       npm install -g --prefix "${OMO_NPM_PREFIX}" "${OMO_NPM_PACKAGE}"

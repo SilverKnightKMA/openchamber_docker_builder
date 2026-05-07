@@ -29,7 +29,7 @@ Key behavior:
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
 - Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
-- `oh-my-opencode` is optional; when `OH_MY_OPENCODE=true`, the entrypoint installs it on demand into an internal, non-mounted npm prefix instead of `~/.npm-global`.
+- Optional `oh-my-opencode` runtime install is disabled by default; `OH_MY_OPENCODE=true` installs the standard package, `OH_MY_OPENCODE_SLIM=true` installs `oh-my-opencode-slim`, and setting both variables to `true` fails fast with a clear entrypoint error.
 - Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
 - `cloudflared` intentionally tracks `cloudflare/cloudflared:latest` through a pinned digest that is refreshed by Dependabot pull request rather than at container runtime.
 - Corepack is not enabled by default. The baked `pnpm` binary is a fallback; project-local package-manager commands remain preferred inside workspaces.
@@ -174,4 +174,4 @@ Baked tools in `/usr/local/bin` and `/opt/openchamber/npm-global/bin` appear bef
 
 Corepack is not enabled in this image. If a workspace requires Corepack-managed shims, enable them explicitly in the persisted user environment or the project workflow after confirming compatibility with that workspace's `packageManager` metadata.
 
-When `OH_MY_OPENCODE=true`, `oh-my-opencode` is installed into `/opt/openchamber/npm-global` by default. This avoids corrupting or depending on the persisted `~/.npm-global` volume. Override `OMO_NPM_PREFIX` or `OMO_NPM_PACKAGE` if you need a custom install location or package spec.
+By default, the entrypoint installs no optional `oh-my-opencode` package. When `OH_MY_OPENCODE=true`, it installs `oh-my-opencode` into `/opt/openchamber/npm-global` by default. When `OH_MY_OPENCODE_SLIM=true`, it installs `oh-my-opencode-slim` into that same internal prefix. This avoids corrupting or depending on the persisted `~/.npm-global` volume. Setting both variables to `true` fails fast with a clear error. Override `OMO_NPM_PREFIX` or `OMO_NPM_PACKAGE` if you need a custom install location or package spec.
