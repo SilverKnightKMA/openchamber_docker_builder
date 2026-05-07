@@ -29,8 +29,156 @@ Refactor the image so only the OpenChamber core runtime, opencode, cloudflared, 
 - Clarified `cloudflared` stays baked-in, not managed.
 - Separated Go toolchain from Go tools.
 - Required explicit install/status scripts plus a no-trust-user-metadata policy.
-
-## Work Objectives
+KQ|## Manifest Schema and Version Policy
+QM|
+ZR|The managed-tools manifest is the single source of truth for all mounted tool versions. It is baked into the image at `/opt/openchamber/managed-tools/manifest.json` and is never sourced from user-mounted volumes.
+MV|
+VS|### Manifest Layout
+QB|
+RZ|```
+ZH|opt/openchamber/managed-tools/
+YS|├── manifest.json          # single source-of-truth for all tool versions
+RB|├── npm/                   # baked package.json + package-lock.json
+KV|│   ├── package.json
+YS|│   └── package-lock.json
+KV|├── go/                  # baked go.mod + go.sum for Go tools
+KV|│   ├── go.mod
+YS|│   └── go.sum
+KV|└── release-binaries/     # placeholder dir for future per-binary manifests (optional)
+RZ|```
+QM|
+ZR|### manifest.json Schema
+QB|
+RZ|```json
+VZ|{
+ZH|  "version": 1,
+VZ|  "root": "/opt/openchamber/managed-tools",
+VZ|  "bootstrapTrigger": "$HOME/.local/state/openchamber/bootstrap.lock",
+VZ|  "policy": {
+ZH|    "allowUserMetadata": false
+VZ|  },
+VZ|  "ecosystems": {
+ZH|    "npm": {
+ZH|      "enabled": true,
+ZH|      "version": "<lockfile-resolved version string>",
+ZH|      "source": "package-lock.json npmResolved or version field",
+ZH|      "installPath": "$HOME/.npm-global",
+ZH|      "prefix": "$HOME/.npm-global",
+ZH|      "comparePolicy": "semver",
+ZH|      "normalize": ["stripLeadingV"],
+ZH|      "installCmd": "npm ci --prefix $DESTINATION --ignore-scripts",
+ZH|      "versionSource": "lockfile"
+ZH|    },
+ZH|    "goToolchain": {
+ZH|      "enabled": true,
+ZH|      "version": "<go version string, e.g. 1.22.4>",
+ZH|      "source": "pinned tarball sha256 in go-toolchain-manifest.json",
+ZH|      "installPath": "$HOME/.go",
+ZH|      "comparePolicy": "semver",
+ZH|      "normalize": ["stripLeadingGo"],
+ZH|      "installCmd": "tar -C $DESTINATION -xzf <tarball>",
+ZH|      "versionSource": "manifest"
+ZH|    },
+ZH|    "goTools": {
+ZH|      "enabled": true,
+ZH|      "version": "<module version or (devel) for unversioned>",
+ZH|      "source": "go.mod require lines + go version -m output",
+ZH|      "installPath": "$HOME/.go/bin",
+ZH|      "GOBIN": "$HOME/.go/bin",
+ZH|      "comparePolicy": "semver-or-devel",
+ZH|      "normalize": ["stripLeadingV", "replace-devel-with-0.0.0"],
+ZH|      "installCmd": "go install -mod=readonly ./...",
+ZH|      "versionSource": "go-version-m"
+ZH|    },
+ZH|    "rustToolchain": {
+ZH|      "enabled": true,
+ZH|      "version": "<rustup toolchain name, e.g. 1.80.0>",
+ZH|      "source": "rustup-toolchain-manifest.json",
+ZH|      "installPath": "$HOME/.rustup",
+ZH|      "toolchainsPath": "$HOME/.rustup/toolchains",
+ZH|      "comparePolicy": "semver",
+ZH|      "normalize": ["stripLeadingV"],
+ZH|      "installCmd": "rustup install <version>",
+ZH|      "versionSource": "manifest"
+ZH|    },
+ZH|    "releaseBinaries": {
+ZH|      "enabled": true,
+ZH|      "version": "<per-binary, follows release-tools.json style>",
+ZH|      "source": "tools/release-tools.json (unchanged location, keeps existing policy)",
+ZH|      "installPath": "$HOME/.local/bin",
+ZH|      "comparePolicy": "semver",
+ZH|      "normalize": ["stripLeadingV"],
+ZH|      "installCmd": "download + sha256 verify + chmod + install",
+ZH|      "versionSource": "manifest"
+ZH|    },
+ZH|    "gh": {
+ZH|      "enabled": true,
+ZH|      "version": "<gh CLI version, e.g. 2.61.0>",
+ZH|      "source": "gh release tag in GitHub API",
+ZH|      "installPath": "$HOME/.local/bin/gh",
+ZH|      "comparePolicy": "semver",
+ZH|      "normalize": ["stripLeadingV"],
+ZH|      "installCmd": "download gh_<version>_linux_amd64.tar.gz + verify checksum + install",
+ZH|      "versionSource": "manifest"
+ZH|    }
+VZ|  }
+VZ|}
+RZ|```
+QM|
+ZR|### Per-Ecosystem Field Definitions
+QB|
+RZ|| Field | npm | Go toolchain | Go tools | Rust | Release binaries | gh |
+RZ||---|---|---|---|---|---|---|
+RZ|| `version` | pinned package version | Go version string | module version | toolchain name | per-binary version | gh version |
+RZ|| `source` | lockfile metadata | SHA256-pinned tarball | `go.mod` require line | rustup toolchain manifest | `release-tools.json` | GitHub release tag |
+RZ|| `installPath` | `~/.npm-global` | `~/.go` | `~/.go/bin` | `~/.rustup` | `~/.local/bin` | `~/.local/bin/gh` |
+RZ|| `comparePolicy` | `semver` | `semver` | `semver-or-devel` | `semver` | `semver` | `semver` |
+RZ|| `normalize` | `stripLeadingV` | `stripLeadingGo` | `stripLeadingV`, `replace-devel` | `stripLeadingV` | `stripLeadingV` | `stripLeadingV` |
+RZ|| `installCmd` | `npm ci --prefix` | `tar -xzf` | `go install -mod=readonly` | `rustup install` | download + checksum | download + checksum |
+RZ|| `versionSource` | `lockfile` | `manifest` | `go version -m` | `manifest` | `manifest` | `manifest` |
+QM|
+ZR|### Version Normalization Rules
+QB|
+RZ|Before comparison, apply normalization per ecosystem:
+QM|
+RZ|| Normalizer | Effect | Example input | Normalized output |
+RZ||---|---|---|---|
+RZ|| `stripLeadingV` | Remove leading `v` | `v1.2.3` | `1.2.3` |
+RZ|| `stripLeadingGo` | Remove leading `go` | `go1.22.4` | `1.22.4` |
+RZ|| `replace-devel` | Replace `(devel)` with `0.0.0` | `(devel)` | `0.0.0` |
+QM|
+ZR|### Compare Policy (applies to all ecosystems)
+QB|
+RZ|| Installed state | Manifest state | Action |
+RZ||---|---|---|
+RZ|| missing | any | install pinned version |
+RZ|| equal | equal (after normalization) | skip |
+RZ|| lower | higher | upgrade to pinned version |
+RZ|| higher | lower | warning + skip (never downgrade) |
+RZ|| newer | older | warning + skip |
+RZ|| unparseable | any | warning + skip unless installer supports checksum-only verification |
+QM|
+ZR|### Source of Truth Policy
+QB|
+RZ|- **Baked manifest only.** No user-mounted JSON, lockfile, or metadata is trusted as an authoritative version source.
+RZ|- Installed tool versions are detected at runtime via tool-specific commands (`npm --version`, `go version`, `go version -m`, `rustup --version`, binary `--version`, `gh --version`).
+RZ|- The baked manifest at `/opt/openchamber/managed-tools/manifest.json` is the only trusted authority.
+RZ|- Bootstrap state is written to `~/.local/state/openchamber/bootstrap.lock` only after successful installation; it is not used to determine versions.
+RZ|- No compare, normalization, or install decision may use user-mounted state files as input.
+QM|
+ZR|### Install Path Summary
+QB|
+RZ|| Tool / group | Install path | State path |
+RZ||---|---|---|
+RZ|| npm tools | `$HOME/.npm-global` | lockfile within mounted npm-global |
+RZ|| Go toolchain | `$HOME/.go` | tarball in builder context at build time |
+RZ|| Go tools (gopls, shfmt) | `$HOME/.go/bin` | `go.mod`/`go.sum` baked in image |
+RZ|| Rust toolchain | `$HOME/.rustup`, `$HOME/.cargo` | rustup-managed in mounted volume |
+RZ|| Release binaries (yq, ruff, etc.) | `$HOME/.local/bin` | per-binary checksum manifest |
+RZ|| gh CLI | `$HOME/.local/bin/gh` | version + checksum manifest |
+QM|
+ZR|Task 1 is complete when the above schema and policy are added to this plan as a new section, and the task 1 TODO acceptance criteria map directly to this specification.
+JQ|
 ### Core Objective
 Reduce the baked image to only the core runtime and unavoidable system features, while preserving deterministic, version-pinned management for all moved tools in mounted volumes.
 
@@ -132,9 +280,9 @@ Wave 4: compose/docs/verification and final audit
 > Implementation + Test = ONE task. Never separate.
 > EVERY task MUST have: Agent Profile + Parallelization + QA Scenarios.
 
-- [ ] 1. Define managed-tools manifest and version policy
+- [x] 1. Define managed-tools manifest and version policy
 
-  **What to do**: Create the source-of-truth managed-tools manifest layout under `/opt/openchamber/managed-tools/`, define per-ecosystem fields for npm, Go toolchain, Go tools, release binaries, Rust toolchain, and `gh`, and codify compare rules and normalization strategy.
+MR|  **What to do**: The complete schema and policy are defined in the **Manifest Schema and Version Policy** section above. Task 1 is complete when that section exists with all per-ecosystem fields, compare rules, normalization rules, and source-of-truth policy fully specified.
   **Must NOT do**: Do not trust user-mounted metadata as authoritative state; do not mix baked tool versions into mounted state files.
 
   **Recommended Agent Profile**:
@@ -144,16 +292,18 @@ Wave 4: compose/docs/verification and final audit
 
   **Parallelization**: Can Parallel: YES | Wave 1 | Blocks: Tasks 2-8 | Blocked By: none
 
-  **References**:
-  - Pattern: `.sisyphus/plans/managed-mounted-tools-refactor.md` - planned contract.
-  - Pattern: `docker-compose.example.yml:23-42` - existing mount paths.
-  - Pattern: `Dockerfile.dockerfile:197-223` - existing PATH/mount behavior.
-  - Pattern: `tools/release-tools.json` - release-binary manifest style.
+KX|  **References**:
+JX|  - Pattern: `.sisyphus/plans/managed-mounted-tools-refactor.md` - **Manifest Schema and Version Policy section** (lines ~33-181) defines the complete contract.
+WB|  - Pattern: `docker-compose.example.yml:23-42` - existing mount paths.
+TJ|  - Pattern: `Dockerfile.dockerfile:197-223` - existing PATH/mount behavior.
+ZH|  - Pattern: `tools/release-tools.json` - release-binary manifest style.
 
-  **Acceptance Criteria**:
-  - [ ] Manifest format is defined for npm, Go toolchain, Go tools, release binaries, Rust, and `gh`.
-  - [ ] Version comparison rules are explicit for equal/lower/higher/missing.
-  - [ ] Paths for installed tools and state are defined.
+JK|  **Acceptance Criteria**:
+YW|  - [ ] Manifest format is defined for npm, Go toolchain, Go tools, release binaries, Rust, and `gh` (see Per-Ecosystem Field Definitions table).
+TN|  - [ ] Version comparison rules are explicit for equal/lower/higher/missing (see Compare Policy table).
+XW|  - [ ] Paths for installed tools and state are defined (see Install Path Summary table).
+BV|  - [ ] Normalization rules are explicit per ecosystem (see Version Normalization Rules table).
+BX|  - [ ] Source-of-truth policy explicitly forbids trusting user-mounted metadata.
 
   **QA Scenarios**:
   ```
@@ -172,7 +322,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `.sisyphus/plans/managed-mounted-tools-refactor.md`
 
-- [ ] 2. Refactor Dockerfile to a smaller baked core
+- [x] 2. Refactor Dockerfile to a smaller baked core
 
   **What to do**: Remove baked dev/support tools that are moving to mounted management, keep core OpenChamber runtime, opencode, cloudflared, DinD, bootstrap essentials, `build-essential`, `python3-pip`, `python3-venv`, `nano`, `git-lfs`, and the agreed system/network tools; delete `neovim`, `vim`, and `tmux` from the image.
   **Must NOT do**: Do not remove DinD, cloudflared, or the OpenChamber runtime; do not move core bootstrap dependencies out of the image.
@@ -213,7 +363,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `Dockerfile.dockerfile`
 
-- [ ] 3. Implement managed npm installer and status checks
+- [x] 3. Implement managed npm installer and status checks
 
   **What to do**: Add an init/status script path for npm-managed tools that uses `npm ci` plus lockfile/pinned versions for the selected tool set, installs into `~/.npm-global`, and performs compare logic without trusting mounted metadata.
   **Must NOT do**: Do not use `npm install -g` without lockfile support for the managed npm bundle; do not write authoritative version state into mounted metadata alone.
@@ -253,7 +403,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `Dockerfile.dockerfile`, new managed-tools files
 
-- [ ] 4. Implement managed Go toolchain and Go tool installation
+- [x] 4. Implement managed Go toolchain and Go tool installation
 
   **What to do**: Add support for downloading a pinned Go toolchain tarball into a mounted volume, verifying SHA256, extracting it, and then installing `gopls` and `shfmt` via a baked `go.mod`/`go.sum` with `-mod=readonly`. Use `go version -m` for version detection.
   **Must NOT do**: Do not trust mounted metadata as source of truth; do not use Go tool version records written only by the user.
@@ -294,7 +444,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools files, Dockerfile/compose docs as needed
 
-- [ ] 5. Implement managed release-binary and rustup installers
+- [x] 5. Implement managed release-binary and rustup installers
 
   **What to do**: Add managed install logic for release-binary/archive tools (`gh`, `clangd`, `clang-format`, `cmake`, `protobuf-compiler`, `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`) and Rust toolchain via `rustup`, with pinned versions and compare rules.
   **Must NOT do**: Do not use apt for these managed tools; do not trust mounted metadata alone.
@@ -334,7 +484,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools files, Dockerfile/compose docs as needed
 
-- [ ] 6. Update compose/env/path wiring for managed mounted tools
+- [x] 6. Update compose/env/path wiring for managed mounted tools
 
   **What to do**: Update `docker-compose.example.yml`, entrypoint defaults, and PATH/setup behavior so mounted managed tools are discovered from the correct directories and initialized in the right order.
   **Must NOT do**: Do not break the existing mount conventions; do not require user-written metadata to determine trust.
@@ -373,7 +523,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: compose/docs/runtime wiring files
 
-- [ ] 7. Add status/reporting and explicit compare diagnostics
+- [x] 7. Add status/reporting and explicit compare diagnostics
 
   **What to do**: Implement a status command/script that reports desired vs actual versions for every managed tool family using the agreed compare sources (`npm lockfile`, `go version -m`, `rustup`, release binary version/checksum, and command version fallback where appropriate).
   **Must NOT do**: Do not trust mounted metadata as the only source of truth; do not silently downgrade newer mounted tools.
@@ -412,7 +562,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools scripts
 
-- [ ] 8. Final validation sweep and documentation update
+- [x] 8. Final validation sweep and documentation update
 
   **What to do**: Run build/image inspection/compare checks, verify the baked-vs-mounted split, and update docs with the final supported tool categories and upgrade rules.
   **Must NOT do**: Do not reintroduce deleted tools or silently modify the approved baked set.
@@ -455,10 +605,10 @@ Wave 4: compose/docs/verification and final audit
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
-- [ ] F1. Plan Compliance Audit — oracle
-- [ ] F2. Code Quality Review — unspecified-high
-- [ ] F3. Real Manual QA — unspecified-high (+ playwright if UI)
-- [ ] F4. Scope Fidelity Check — deep
+- [x] F1. Plan Compliance Audit — oracle
+- [x] F2. Code Quality Review — unspecified-high
+- [x] F3. Real Manual QA — unspecified-high (+ playwright if UI)
+- [x] F4. Scope Fidelity Check — deep
 
 ## Commit Strategy
 - No commit unless the user explicitly asks for one later.

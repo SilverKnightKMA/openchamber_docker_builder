@@ -13,6 +13,17 @@ services:
       OPENCODE_CONFIG_DIR: /home/openchamber/.config/opencode
       GIT_CONFIG_GLOBAL: /home/openchamber/.config/git/config
       UI_PASSWORD: change-me
+      NPM_CONFIG_PREFIX: /home/openchamber/.npm-global
+      BUN_INSTALL: /home/openchamber/.bun
+      CARGO_HOME: /home/openchamber/.cargo
+      RUSTUP_HOME: /home/openchamber/.rustup
+      GOPATH: /home/openchamber/.go/path
+      GOROOT: /home/openchamber/.go/toolchain
+      GOBIN: /home/openchamber/.go/path/bin
+      PYTHONUSERBASE: /home/openchamber/.local/pip
+      MANAGED_TOOLS_BIN_DIR: /home/openchamber/.local/bin
+      # Set to "false" to skip managed mounted-tool bootstrap at container start.
+      OPENCHAMBER_MANAGED_TOOLS_BOOTSTRAP: "true"
       # Enable Docker-in-Docker for trusted deployments only. Requires privileged: true
       # plus the /var/lib/docker and /var/lib/containerd mounts below.
       # ENABLE_DIND: "true"
@@ -29,6 +40,8 @@ services:
       - ./data/workspaces:/home/openchamber/workspaces
       - ./data/config/git:/home/openchamber/.config/git
       - ./data/config/gh:/home/openchamber/.config/gh
+      # Managed mounted tools: npm -> .npm-global, release binaries/gh -> .local/bin,
+      # Go toolchain/tools -> .go, Rust toolchain/tools -> .rustup/.cargo.
       - ./data/npm-global:/home/openchamber/.npm-global
       - ./data/bun:/home/openchamber/.bun
       - ./data/local-bin:/home/openchamber/.local/bin

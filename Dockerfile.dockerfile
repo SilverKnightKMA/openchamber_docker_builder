@@ -8,10 +8,7 @@ FROM docker:29.4.1-dind@sha256:c77e5d7912f9b137cc67051fdc2991d8f5ae22c55ddf532bb
 
 FROM ghcr.io/astral-sh/uv:0.11.10@sha256:bca7f6959666f3524e0c42129f9d8bbcfb0c180d847f5187846b98ff06125ead AS uv-bin
 
-FROM golang:1.26.2-bookworm@sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19 AS go-runtime
-
 FROM oven/bun:1.3.13@sha256:87416c977a612a204eb54ab9f3927023c2a3c971f4f345a01da08ea6262ae30e AS app-builder
-ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /app
 
 # Use the full upstream source tree as build context so Bun workspace
@@ -21,14 +18,20 @@ RUN bun install --ignore-scripts
 RUN bun run build:web
 
 FROM oven/bun:1.3.13@sha256:87416c977a612a204eb54ab9f3927023c2a3c971f4f345a01da08ea6262ae30e AS runtime
-ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /home/openchamber
 
-COPY --from=toolchain package.json package-lock.json /opt/openchamber/toolchain/
-COPY --from=toolchain go.mod go.sum tools.go /opt/openchamber/go-tools/
-COPY --from=toolchain tools/release-tools.json /opt/openchamber/release-tools.json
-COPY --from=toolchain scripts/install-release-tools.sh /usr/local/bin/install-release-tools
+COPY --from=toolchain managed-tools/manifest.json /opt/openchamber/managed-tools/manifest.json
+COPY --from=toolchain managed-tools/gh.json managed-tools/release-binaries.json /opt/openchamber/managed-tools/
+COPY --from=toolchain managed-tools/npm/package.json managed-tools/npm/package-lock.json /opt/openchamber/managed-tools/npm/
+COPY --from=toolchain managed-tools/go/go.mod managed-tools/go/go.sum managed-tools/go/tools.go managed-tools/go/toolchain.json /opt/openchamber/managed-tools/go/
+COPY --from=toolchain managed-tools/rust/toolchain.json /opt/openchamber/managed-tools/rust/toolchain.json
+COPY --from=toolchain scripts/managed-tools/npm-managed-tools.mjs /opt/openchamber/managed-tools/bin/npm-managed-tools.mjs
+COPY --from=toolchain scripts/managed-tools/go-managed-tools.mjs /opt/openchamber/managed-tools/bin/go-managed-tools.mjs
+COPY --from=toolchain scripts/managed-tools/release-binary-managed-tools.mjs /opt/openchamber/managed-tools/bin/release-binary-managed-tools.mjs
+COPY --from=toolchain scripts/managed-tools/rust-managed-tools.mjs /opt/openchamber/managed-tools/bin/rust-managed-tools.mjs
+COPY --from=toolchain tools/release-tools.json /opt/openchamber/managed-tools/release-tools.json
 COPY --from=toolchain scripts/openchamber-dind-entrypoint.sh /usr/local/bin/openchamber-dind-entrypoint
+COPY --from=toolchain scripts/openchamber-managed-tools-init.sh /usr/local/bin/openchamber-managed-tools-init
 
 # Copy Node/npm from pinned official Node image before apt to avoid Debian npm.
 # The node-runtime stage is first so Docker Dependabot can track it.
@@ -40,17 +43,11 @@ RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   bash \
-  bat \
   build-essential \
   ca-certificates \
-  clangd \
-  clang-format \
-  cmake \
   curl \
   dnsutils \
-  fd-find \
   file \
-  fzf \
   git \
   git-lfs \
   gettext-base \
@@ -63,46 +60,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libicu76 \
   lsof \
   nano \
-  neovim \
   netcat-openbsd \
   openssh-client \
   pkg-config \
   procps \
-  protobuf-compiler \
   python3 \
   python3-pip \
   python3-venv \
-  ripgrep \
   rsync \
-  rustc \
-  cargo \
-  shellcheck \
   sqlite3 \
-  strace \
   sudo \
   tar \
-  tmux \
-  tree \
-  universal-ctags \
   unzip \
-  vim \
   wget \
   xz-utils \
   zip \
   psmisc \
-  && ln -sf /usr/bin/batcat /usr/local/bin/bat \
-  && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
   && ln -sf /usr/bin/python3 /usr/local/bin/python \
-  && chmod +x /usr/local/bin/install-release-tools \
   && chmod +x /usr/local/bin/openchamber-dind-entrypoint \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p -m 755 /etc/apt/keyrings \
-  && wget -qO /etc/apt/keyrings/githubcli-archive-keyring.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-  && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends gh \
+  && chmod +x /usr/local/bin/openchamber-managed-tools-init \
+  && chmod +x /opt/openchamber/managed-tools/bin/npm-managed-tools.mjs \
+  && chmod +x /opt/openchamber/managed-tools/bin/go-managed-tools.mjs \
+  && chmod +x /opt/openchamber/managed-tools/bin/release-binary-managed-tools.mjs \
+  && chmod +x /opt/openchamber/managed-tools/bin/rust-managed-tools.mjs \
+  && ln -sf /opt/openchamber/managed-tools/bin/npm-managed-tools.mjs /usr/local/bin/openchamber-managed-npm \
+  && ln -sf /opt/openchamber/managed-tools/bin/go-managed-tools.mjs /usr/local/bin/openchamber-managed-go \
+  && ln -sf /opt/openchamber/managed-tools/bin/release-binary-managed-tools.mjs /usr/local/bin/openchamber-managed-release-binaries \
+  && ln -sf /opt/openchamber/managed-tools/bin/rust-managed-tools.mjs /usr/local/bin/openchamber-managed-rust \
   && rm -rf /var/lib/apt/lists/*
 
 # Replace the base image's 'bun' user (UID 1000) with 'openchamber'
@@ -119,7 +103,6 @@ RUN userdel bun \
   && chown -R openchamber:openchamber /home/openchamber /opt/openchamber
 
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
-COPY --from=go-runtime /usr/local/go /usr/local/go
 COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/
 COPY --from=docker-dind /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/
@@ -129,18 +112,9 @@ RUN printf '%s\n' \
   'exit 0' \
   > /usr/local/bin/xdg-open \
   && chmod +x /usr/local/bin/xdg-open
-RUN npm ci --omit=dev --prefix /opt/openchamber/toolchain \
-  && for bin in /opt/openchamber/toolchain/node_modules/.bin/*; do \
-    ln -sf "${bin}" "/usr/local/bin/$(basename "${bin}")"; \
-  done \
+RUN npm install --global --omit=dev --ignore-scripts --prefix /opt/openchamber/npm-global opencode-ai@1.14.39 \
+  && ln -sf /opt/openchamber/npm-global/bin/opencode /usr/local/bin/opencode \
   && rm -rf /root/.npm
-RUN install-release-tools /opt/openchamber/release-tools.json \
-  && rm -f /usr/local/bin/install-release-tools
-RUN cd /opt/openchamber/go-tools \
-  && GOBIN=/usr/local/bin go install mvdan.cc/sh/v3/cmd/shfmt \
-  && GOBIN=/usr/local/bin go install golang.org/x/tools/gopls \
-  && rm -rf /root/.cache/go-build /root/go/pkg/mod/cache
-
 COPY --from=app-builder /app/scripts/docker-entrypoint.sh /home/openchamber/openchamber-entrypoint.sh
 RUN python3 - <<'PY'
 from pathlib import Path
@@ -197,20 +171,23 @@ ENV DOCKER_TLS_CERTDIR=
 ENV NPM_CONFIG_PREFIX=/home/openchamber/.npm-global
 ENV BUN_INSTALL=/home/openchamber/.bun
 ENV CARGO_HOME=/home/openchamber/.cargo
-ENV GOPATH=/home/openchamber/.go
+ENV GOPATH=/home/openchamber/.go/path
+ENV GOROOT=/home/openchamber/.go/toolchain
+ENV GOBIN=/home/openchamber/.go/path/bin
 ENV PYTHONUSERBASE=/home/openchamber/.local/pip
 ENV RUSTUP_HOME=/home/openchamber/.rustup
 ENV XDG_CACHE_HOME=/home/openchamber/.cache
 ENV XDG_CONFIG_HOME=/home/openchamber/.config
 ENV XDG_DATA_HOME=/home/openchamber/.local/share
 ENV XDG_STATE_HOME=/home/openchamber/.local/state
-ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/openchamber/npm-global/bin:/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin
+ENV PATH=/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.go/path/bin:/home/openchamber/.go/toolchain/bin:/home/openchamber/.cargo/bin:/home/openchamber/.bun/bin:/home/openchamber/.local/pip/bin:/opt/openchamber/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN mkdir -p \
   /home/openchamber/.bun \
   /home/openchamber/.cargo/bin \
   /home/openchamber/.config \
-  /home/openchamber/.go/bin \
+  /home/openchamber/.go/path/bin \
+  /home/openchamber/.go/toolchain/bin \
   /home/openchamber/.local/bin \
   /home/openchamber/.local/pip/bin \
   /home/openchamber/.local/share \

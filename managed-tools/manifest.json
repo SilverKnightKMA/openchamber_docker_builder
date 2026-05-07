@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "root": "/opt/openchamber/managed-tools",
+  "bootstrapTrigger": "$HOME/.local/state/openchamber/bootstrap.lock",
+  "policy": {
+    "allowUserMetadata": false
+  },
+  "ecosystems": {
+    "npm": {
+      "enabled": true,
+      "source": "npm/package-lock.json",
+      "installPath": "$HOME/.npm-global",
+      "prefix": "$HOME/.npm-global",
+      "comparePolicy": "semver",
+      "normalize": ["stripLeadingV"],
+      "installCmd": "npm ci --prefix $DESTINATION --ignore-scripts",
+      "versionSource": "lockfile"
+    },
+    "goToolchain": {
+      "enabled": true,
+      "version": "go1.26.2",
+      "source": "go/toolchain.json",
+      "installPath": "$HOME/.go",
+      "comparePolicy": "semver",
+      "normalize": ["stripLeadingGo"],
+      "installCmd": "tar -C $DESTINATION -xzf <verified tarball>",
+      "versionSource": "manifest"
+    },
+    "goTools": {
+      "enabled": true,
+      "source": "go/go.mod + go version -m output",
+      "installPath": "$HOME/.go/bin",
+      "GOBIN": "$HOME/.go/bin",
+      "comparePolicy": "semver-or-devel",
+      "normalize": ["stripLeadingV", "replace-devel-with-0.0.0"],
+      "installCmd": "go install -mod=readonly golang.org/x/tools/gopls mvdan.cc/sh/v3/cmd/shfmt",
+      "versionSource": "go-version-m"
+    },
+    "rustToolchain": {
+      "enabled": true,
+      "version": "1.95.0",
+      "source": "rust/toolchain.json",
+      "installPath": "$HOME/.rustup",
+      "toolchainsPath": "$HOME/.rustup/toolchains",
+      "cargoHome": "$HOME/.cargo",
+      "comparePolicy": "semver",
+      "normalize": ["stripLeadingV"],
+      "installCmd": "rustup toolchain install 1.95.0 --profile minimal",
+      "versionSource": "manifest"
+    },
+    "releaseBinaries": {
+      "enabled": true,
+      "source": "release-tools.json + release-binaries.json",
+      "installPath": "$HOME/.local/bin",
+      "comparePolicy": "semver",
+      "normalize": ["stripLeadingV"],
+      "installCmd": "download + sha256 verify + extract selected binaries",
+      "versionSource": "manifest"
+    },
+    "gh": {
+      "enabled": true,
+      "version": "2.83.1",
+      "source": "gh.json",
+      "installPath": "$HOME/.local/bin/gh",
+      "comparePolicy": "semver",
+      "normalize": ["stripLeadingV"],
+      "installCmd": "download gh_2.83.1_linux_amd64.tar.gz + verify checksum + install",
+      "versionSource": "manifest"
+    }
+  }
+}

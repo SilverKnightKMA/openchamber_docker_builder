@@ -36,7 +36,9 @@ if [ "${ENABLE_DIND:-false}" = "true" ]; then
 fi
 
 if [ "$(id -u)" -eq 0 ]; then
-  exec sudo -E -u openchamber sh /home/openchamber/openchamber-entrypoint.sh
+  exec sudo -E -u openchamber sh -c '. /usr/local/bin/openchamber-managed-tools-init && exec sh /home/openchamber/openchamber-entrypoint.sh'
 fi
 
+# shellcheck source=/usr/local/bin/openchamber-managed-tools-init
+. /usr/local/bin/openchamber-managed-tools-init
 exec sh /home/openchamber/openchamber-entrypoint.sh

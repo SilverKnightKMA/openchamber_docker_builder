@@ -1,0 +1,1 @@
+- Bootstrap sequencing mismatch remains unresolved: the root path in `scripts/openchamber-dind-entrypoint.sh` appears to bypass the managed tool initializer.
