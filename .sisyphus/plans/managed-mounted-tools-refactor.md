@@ -1,8 +1,8 @@
 # Managed Mounted Tools Refactor
 
 ## TL;DR
-> **Summary**: Shrink the baked image to OpenChamber core runtime, opencode core, cloudflared, DinD, and bootstrap essentials; move all feasible developer/support tooling into pinned, user-mounted managed installs.
-> **Deliverables**: refactored Dockerfile, managed-tools manifest + init/status scripts, compose/env/path updates, docs, verification evidence.
+> **Summary**: Shrink the baked image to OpenChamber core runtime, opencode core, cloudflared, DinD, and bootstrap essentials; move all feasible developer/support tooling into pinned, user-mounted managed installs triggered manually by user command, not Docker startup by default.
+> **Deliverables**: refactored Dockerfile, baked-tool upgrade workflow, repo-hosted managed-tools config workflow, user-invoked init/status/update scripts, compose/env/path updates, docs, verification evidence.
 > **Effort**: Large
 > **Parallel**: YES - 4 waves
 > **Critical Path**: manifest design → bootstrap scripts → Dockerfile/core split → verification
@@ -20,22 +20,28 @@ Refactor the image so only the OpenChamber core runtime, opencode, cloudflared, 
 - npm tools use `npm ci` + lockfile with pinned versions.
 - Managed tools follow: missing => install, equal => skip, lower => upgrade, higher => warning + skip.
 - User-mounted metadata is not trusted as source of truth.
+- User-mounted tool install/update is not run during Docker startup by default; users run an init/update command that fetches a remote tool config from Git and then installs/updates tools.
+- Optional startup auto-install exists only behind the explicit env var `OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true`.
+- Docker startup remains focused on baked image tools, OpenChamber, OMO/OMOS optional behavior, and user tool environment paths.
+- The repo-hosted managed-tools config is fetched from `origin/main` unless a custom ref is explicitly provided to the init/update command.
 - Existing mount conventions already exist for `.npm-global`, `.go`, `.cargo`, `.rustup`, `.local/bin`, `.local/pip`, `.bun`, and `.cloudflared`.
 - Confirmed baked apt set includes bootstrap/system essentials, DinD/network essentials, `build-essential`, `python3-pip`, `python3-venv`, `nano`, and `git-lfs`; `gh` is removed from baked apt and installed as a managed mounted release binary; `neovim`, `vim`, and `tmux` are deleted from the image.
 
 ### Metis Review (gaps addressed)
-- Chose a single source-of-truth managed-tools manifest baked into the image under `/opt/openchamber/managed-tools/`.
-- Applied defaults for managed-tools root, bootstrap trigger, and version normalization.
+- Chose no baked managed-tools config in the image; only install/update/status scripts are baked, and they fetch the latest managed-tools config from this repository when the user runs them.
+- Applied defaults for managed-tools root, manual init/update trigger, and version normalization.
 - Clarified `cloudflared` stays baked-in, not managed.
 - Separated Go toolchain from Go tools.
 - Required explicit install/status scripts plus a no-trust-user-metadata policy.
+- Required separate upgrade paths for baked tools and user-mounted managed tools.
+- Default init/update source is `origin/main` of this repository; scripts may accept an override ref, but must not depend on user-mounted tool state for source-of-truth.
 
 ## Work Objectives
 ### Core Objective
 Reduce the baked image to only the core runtime and unavoidable system features, while preserving deterministic, version-pinned management for all moved tools in mounted volumes.
 
 ### Tool Placement Matrix
-> This matrix is the authoritative mapping for Atlas: if a tool is listed here, follow the stated placement and technical method exactly.
+> This matrix is the authoritative placement mapping for Atlas: if a tool is listed here, follow the stated placement and technical method exactly. User-mounted managed tool versions come from a repo-hosted config fetched during explicit init/update runs; the image must not contain a baked managed-tools config.
 
 | Tool / group | Final placement | Technical method | Source of truth | Notes |
 |---|---|---|---|---|
@@ -46,14 +52,14 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 | `cloudflared` | baked image | copy from pinned image stage | pinned image digest | explicitly kept baked-in |
 | DinD (`docker`, `dockerd`, `containerd`, `runc`, plugins) | baked image | copy from pinned `docker:dind` stage | pinned image digest | never user-mounted |
 | `bash`, `ca-certificates`, `curl`, `git`, `openssh-client`, `python3`, `python3-pip`, `python3-venv`, `tar`, `unzip`, `xz-utils`, `file`, `jq`, `less`, `procps`, `psmisc`, `iproute2`, `iptables`, `kmod`, `netcat-openbsd`, `lsof`, `rsync`, `sudo`, `dnsutils`, `iputils-ping`, `nano`, `git-lfs`, `build-essential` | baked image | apt install in bootstrap layer | apt package pinning from distro repos | approved bootstrap/system/debug set |
-| `gh` | managed mounted tool | release binary to `~/.local/bin/gh` | version + checksum manifest | not baked |
-| Go toolchain (`go`) | managed mounted tool | pinned release tarball to mounted path | SHA256-pinned tarball manifest | not baked |
-| Go tools (`gopls`, `shfmt`) | managed mounted tools | `go install -mod=readonly` using mounted Go toolchain | baked `go.mod`/`go.sum` | version check via `go version -m` only |
-| Rust toolchain (`rustc`, `cargo`) | managed mounted tool | `rustup` into mounted `~/.rustup` and `~/.cargo` | pinned toolchain manifest | not baked |
-| `clangd`, `clang-format`, `cmake`, `protobuf-compiler` | managed mounted tools | release-binary/archive installs into `~/.local/bin` or tool-specific mounted dirs | version + checksum manifest | never apt in final plan |
-| npm support tools (`pyright`, `eslint`, `prettier`, `pnpm`, `typescript`, `typescript-language-server`, `yaml-language-server`, `bash-language-server`, `dockerfile-language-server-nodejs`, `svelte-language-server`, `vscode-langservers-extracted`, `@biomejs/biome`, `@ast-grep/cli`) | managed mounted tools | `npm ci` + lockfile into `~/.npm-global` | `package.json` + lockfile | missing/equal/lower/higher policy applies |
-| Release-binary support tools (`yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`) | managed mounted tools | release archive/binary install into `~/.local/bin` | `tools/release-tools.json` | checksum mandatory |
-| `bat`, `fd-find`, `fzf`, `ripgrep`, `shellcheck`, `tree`, `universal-ctags`, `strace` | managed mounted tools | release-binary/archive install into `~/.local/bin` | tool-specific pinned manifest | only if desired by the implementation wave |
+| `gh` | managed mounted tool | release binary to `~/.local/bin/gh` | repo-hosted managed-tools config + checksum | not baked |
+| Go toolchain (`go`) | managed mounted tool | pinned release tarball to mounted path | repo-hosted managed-tools config + SHA256 | not baked |
+| Go tools (`gopls`, `shfmt`) | managed mounted tools | `go install -mod=readonly` using mounted Go toolchain | repo-hosted managed-tools config supplies managed `go.mod`/`go.sum` | version check via `go version -m` only |
+| Rust toolchain (`rustc`, `cargo`) | managed mounted tool | `rustup` into mounted `~/.rustup` and `~/.cargo` | repo-hosted managed-tools config pins toolchain | not baked |
+| `clangd`, `clang-format`, `cmake`, `protobuf-compiler` | managed mounted tools | release-binary/archive installs into `~/.local/bin` or tool-specific mounted dirs | repo-hosted managed-tools config + checksum | never apt in final plan |
+| npm support tools (`pyright`, `eslint`, `prettier`, `pnpm`, `typescript`, `typescript-language-server`, `yaml-language-server`, `bash-language-server`, `dockerfile-language-server-nodejs`, `svelte-language-server`, `vscode-langservers-extracted`, `@biomejs/biome`, `@ast-grep/cli`) | managed mounted tools | `npm ci` + lockfile into `~/.npm-global` | repo-hosted managed-tools config with `package.json` + lockfile | missing/equal/lower/higher policy applies |
+| Release-binary support tools (`yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`) | managed mounted tools | release archive/binary install into `~/.local/bin` | repo-hosted managed-tools config + checksum | checksum mandatory |
+| `bat`, `fd-find`, `fzf`, `ripgrep`, `shellcheck`, `tree`, `universal-ctags`, `strace` | managed mounted tools | release-binary/archive install into `~/.local/bin` | repo-hosted managed-tools config + checksum | only if listed in fetched config |
 | `neovim`, `vim`, `tmux` | deleted from image | none | none | no baked, no managed default |
 
 ### Canonical Compare Rules
@@ -70,9 +76,32 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 - Rust: `/home/openchamber/.rustup` and `/home/openchamber/.cargo`
 - release binaries and CLIs: `/home/openchamber/.local/bin`
 
+### Upgrade Source Matrix
+> Baked image tools and mounted user tools have separate upgrade channels. Atlas must not merge them into one workflow.
+
+| Tool / group | Upgrade channel | Automation | Required verification |
+|---|---|---|---|
+| Base images (`oven/bun`, `node`, `docker:dind`, `cloudflared`) | Dependabot Docker updates or existing digest workflow | Dependabot PRs for Docker ecosystem | image digest pin and Docker build |
+| Apt baked packages | Dependabot Docker/base-image refresh + scheduled rebuild | no per-package user workflow | build succeeds and package presence checks pass |
+| OpenChamber upstream runtime | existing upstream main/release build workflows | existing workflow tags `latest`/`stable` | app smoke test |
+| `opencode-ai` baked core | npm dependency update in builder repo | Dependabot npm PR or custom npm update workflow | `npm ci`, version check, image smoke |
+| OMO/OMOS optional runtime package | runtime env-driven install | optional env pin via `OMO_NPM_PACKAGE=name@version` | entrypoint log and command check |
+| Managed npm user tools | remote managed-tools Git config | custom update workflow updates lockfile/config | `npm ci --dry-run` or install smoke in temp prefix |
+| Managed release binaries (`gh`, `yq`, `ruff`, etc.) | remote managed-tools Git config | custom workflow fetches upstream release/checksum metadata | checksum verification, version command |
+| Managed Go toolchain | remote managed-tools Git config | custom workflow updates Go tarball version + SHA256 | SHA256 verify and `go version` |
+| Managed Go tools | remote managed-tools Git config | custom workflow updates `go.mod`/`go.sum` | `go list -m -mod=readonly`, install smoke, `go version -m` |
+| Managed Rust toolchain | remote managed-tools Git config | custom workflow updates pinned rustup toolchain | `rustup toolchain list`, `rustc --version` |
+| Managed LLVM/CMake/protobuf archives | remote managed-tools Git config | custom workflow updates release URL + checksum | checksum verify and version command |
+
+### Upgrade Workflow Defaults
+- Baked tool upgrades are handled by Dependabot or existing Docker/build workflows for image digest and package updates.
+- User-mounted tool upgrades are handled by a user-invoked init/update script that fetches config from `origin/main` in this repository.
+- The user-mount updater may accept an explicit `--ref` or equivalent override, but `origin/main` is the default.
+- The startup env flag `OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true` may enable automatic install of missing mounted tools, but it is not the default path.
+
 ### Deliverables
 - Refactored `Dockerfile.dockerfile` with a smaller baked core.
-- Baked managed-tools manifest under `/opt/openchamber/managed-tools/`.
+- Repo-hosted managed-tools config and lock/checksum files; image contains only scripts that fetch and consume that config.
 - Init/status scripts that manage mounted tools with compare rules.
 - Updated compose/env/path/docs for mounted tool management.
 - Verification showing missing/equal/lower/higher behavior for representative tool types.
@@ -87,7 +116,9 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 - [ ] Cloudflared and DinD still work from the baked image.
 
 ### Must Have
-- Single baked managed-tools manifest and installer/status scripts.
+- Baked default managed-tools bootstrap config plus user-invoked init/status/update scripts.
+- Init/update script fetches active managed-tools config from this repository (`origin/main` by default) before installing/updating mounted tools.
+- Dependabot/custom workflows for baked tool upgrades and user-mounted tool config upgrades.
 - Clear separation between baked system/bootstrap tools, managed mounted tools, and deleted tools.
 - No trust in user-mounted metadata as source of truth.
 - Explicit handling for npm, Go toolchain/tools, release binaries, Rust, and `gh`.
@@ -98,11 +129,14 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 - No user-mounted DinD daemon/runtime.
 - No trust of mutable mounted metadata as authoritative version state.
 - No reintroduction of `neovim`, `vim`, or `tmux` into the image.
+- No default startup network install of user-mounted tools.
+- No hidden automatic downgrade of newer user-mounted tools.
 
 ## Verification Strategy
 > ZERO HUMAN INTERVENTION - all verification is agent-executed.
 - Test decision: tests-after + scripted verification, using the repo's existing Docker build and image inspection commands.
 - QA policy: every task includes agent-executed install/compare scenarios.
+- Startup policy: Docker startup must not require network access for managed user tools unless explicit auto-install env is enabled.
 - Evidence: `.sisyphus/evidence/task-{N}-{slug}.{ext}`
 
 ## Execution Strategy
@@ -132,9 +166,9 @@ Wave 4: compose/docs/verification and final audit
 > Implementation + Test = ONE task. Never separate.
 > EVERY task MUST have: Agent Profile + Parallelization + QA Scenarios.
 
-- [ ] 1. Define managed-tools manifest and version policy
+- [ ] 1. Define repo-hosted managed-tools config and version policy
 
-  **What to do**: Create the source-of-truth managed-tools manifest layout under `/opt/openchamber/managed-tools/`, define per-ecosystem fields for npm, Go toolchain, Go tools, release binaries, Rust toolchain, and `gh`, and codify compare rules and normalization strategy.
+  **What to do**: Create the source-of-truth managed-tools config layout in this repository, define per-ecosystem fields for npm, Go toolchain, Go tools, release binaries, Rust toolchain, and `gh`, and codify compare rules and normalization strategy. The Docker image must not bake this config; it only bakes scripts that fetch it.
   **Must NOT do**: Do not trust user-mounted metadata as authoritative state; do not mix baked tool versions into mounted state files.
 
   **Recommended Agent Profile**:
@@ -159,7 +193,7 @@ Wave 4: compose/docs/verification and final audit
   ```
   Scenario: Manifest validates
     Tool: Bash
-    Steps: Inspect the baked manifest file and confirm each tool family has required fields.
+    Steps: Inspect the repo-hosted managed-tools config files and confirm each tool family has required fields.
     Expected: Every family has version, source type, install path, and comparison policy.
     Evidence: .sisyphus/evidence/task-1-manifest-validate.txt
 
