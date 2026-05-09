@@ -1,0 +1,14 @@
+{
+  "toolchain": "stable",
+  "targets": [
+    "x86_64-unknown-linux-gnu"
+  ],
+  "profile": "default",
+  "components": [
+    "rustc",
+    "cargo",
+    "rust-std"
+  ],
+  "overrides": {},
+  "version": "1.95.0"
+}

@@ -1,6 +1,20 @@
 #!/usr/bin/env sh
 set -eu
 
+export PATH="/opt/openchamber/npm-global/bin:/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.bun/bin:/home/openchamber/.cargo/bin:/home/openchamber/.go/toolchain/bin:/home/openchamber/.go/bin:/home/openchamber/.local/pip/bin:${PATH}"
+
+install_managed_tools() {
+  managed-tools init --ref "${OPENCHAMBER_MANAGED_TOOLS_REF:-main}"
+}
+
+if [ "${OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL:-false}" = "true" ]; then
+  if [ "$(id -u)" -eq 0 ]; then
+    sudo -E -u openchamber sh -c 'managed-tools init --ref "${OPENCHAMBER_MANAGED_TOOLS_REF:-main}"'
+  else
+    install_managed_tools
+  fi
+fi
+
 if [ "${ENABLE_DIND:-false}" = "true" ]; then
   if [ "$(id -u)" -ne 0 ]; then
     echo "[dind] ENABLE_DIND=true requires root entrypoint" >&2

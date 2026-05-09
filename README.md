@@ -8,6 +8,12 @@ Builder-owned Docker packaging for upstream [`openchamber/openchamber`](https://
 - A `docker-compose.example.yml` sample for persistent local/containerized usage.
 - A GitHub Actions workflow that checks out both this builder repository and the upstream source before publishing images.
 
+## Tool tiers
+
+- Baked core: OpenChamber runtime, `opencode-ai`, `cloudflared`, DinD, and bootstrap essentials that must be present in image.
+- Managed mounted tools: pinned toolchains and binaries installed into mounted home directories on demand, with status/upgrade commands and optional startup autoinstall.
+- Custom mounted tools: user-owned extras that live in the same persisted mounts but are outside managed manifests and status checks.
+
 ## Local build
 
 This builder Dockerfile is named `Dockerfile.dockerfile` so Dockerfile LSP tools that only match by extension can attach without unsafe extensionless-file workarounds. It is designed to run from the upstream source tree while referencing the packaging files from this repository.
@@ -43,7 +49,9 @@ cp docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-The sample persists configuration, authentication, SSH state, cloudflared state, workspaces, editor state, and user-installed tools so the container can be recreated without losing developer environment setup.
+The sample persists configuration, authentication, SSH state, cloudflared state, workspaces, editor state, and managed user tools so the container can be recreated without losing developer environment setup. Managed tool paths are available on `PATH` in this order: `/opt/openchamber/npm-global/bin`, `~/.local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, `~/.cargo/bin`, `~/.go/toolchain/bin`, `~/.go/bin`, and `~/.local/pip/bin`, followed by system paths.
+
+Managed tool startup install remains disabled by default. Run `npm run managed:init` or `npm run managed:update` inside a checked-out builder repo to fetch managed config from `origin/main` and install pinned tools into mounted home directories. Pass `-- --ref <ref>` to use another branch, tag, or commit. Container startup only runs the same workflow when `OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true`; set `OPENCHAMBER_MANAGED_TOOLS_REF=<ref>` to override the default `main` ref for that autoinstall path. Managed installs target the mounted directories shown in the compose example: npm tools under `~/.npm-global`, release binaries such as `gh` under `~/.local/bin`, Rust/rustup under `~/.cargo` and `~/.rustup`, and Go under `~/.go/toolchain` plus `~/.go/bin`.
 
 ### Optional Docker-in-Docker
 

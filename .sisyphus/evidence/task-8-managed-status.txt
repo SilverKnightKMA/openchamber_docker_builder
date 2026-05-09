@@ -1,0 +1,28 @@
+
+> managed:status
+> node scripts/managed-tools-status.mjs
+
+family	type	name	desired	actual	path	state	action	source
+npm	package	@ast-grep/cli	0.42.1	-	/home/openchamber/.npm-global/node_modules/@ast-grep/cli/package.json	missing	install	tools/managed-npm-package.json
+npm	package	@biomejs/biome	2.4.14	-	/home/openchamber/.npm-global/node_modules/@biomejs/biome/package.json	missing	install	tools/managed-npm-package.json
+npm	package	@vue/language-server	3.2.8	-	/home/openchamber/.npm-global/node_modules/@vue/language-server/package.json	missing	install	tools/managed-npm-package.json
+npm	package	bash-language-server	5.6.0	-	/home/openchamber/.npm-global/node_modules/bash-language-server/package.json	missing	install	tools/managed-npm-package.json
+npm	package	dockerfile-language-server-nodejs	0.15.0	-	/home/openchamber/.npm-global/node_modules/dockerfile-language-server-nodejs/package.json	missing	install	tools/managed-npm-package.json
+npm	package	eslint	10.3.0	-	/home/openchamber/.npm-global/node_modules/eslint/package.json	missing	install	tools/managed-npm-package.json
+npm	package	opencode-ai	1.14.39	-	/home/openchamber/.npm-global/node_modules/opencode-ai/package.json	missing	install	tools/managed-npm-package.json
+npm	package	pnpm	10.33.4	-	/home/openchamber/.npm-global/node_modules/pnpm/package.json	missing	install	tools/managed-npm-package.json
+npm	package	prettier	3.8.3	-	/home/openchamber/.npm-global/node_modules/prettier/package.json	missing	install	tools/managed-npm-package.json
+npm	package	pyright	1.1.409	-	/home/openchamber/.npm-global/node_modules/pyright/package.json	missing	install	tools/managed-npm-package.json
+npm	package	svelte-language-server	0.18.0	-	/home/openchamber/.npm-global/node_modules/svelte-language-server/package.json	missing	install	tools/managed-npm-package.json
+npm	package	typescript	6.0.3	-	/home/openchamber/.npm-global/node_modules/typescript/package.json	missing	install	tools/managed-npm-package.json
+npm	package	typescript-language-server	5.1.3	-	/home/openchamber/.npm-global/node_modules/typescript-language-server/package.json	missing	install	tools/managed-npm-package.json
+npm	package	vscode-langservers-extracted	4.10.0	-	/home/openchamber/.npm-global/node_modules/vscode-langservers-extracted/package.json	missing	install	tools/managed-npm-package.json
+npm	package	yaml-language-server	1.22.0	-	/home/openchamber/.npm-global/node_modules/yaml-language-server/package.json	missing	install	tools/managed-npm-package.json
+go	toolchain	go	1.26.2	-	/home/openchamber/.go/toolchain/bin/go	missing	install	tools/managed-go-toolchain.json
+go	tool	gopls	0.21.1	-	/home/openchamber/.go/bin/gopls	missing	install	tools/managed-go/go.mod
+go	tool	shfmt	3.13.1	-	/home/openchamber/.go/bin/shfmt	missing	install	tools/managed-go/go.mod
+release-binaries	binary	gh	v2.68.0	-	/home/openchamber/.local/bin/gh	missing	install	tools/managed-release-binaries.json
+rustup	bootstrap	rustup	present	-	/home/openchamber/.cargo/bin/rustup	missing	install	tools/managed-rustup.json
+rustup	toolchain	stable	1.95.0	-	/home/openchamber/.cargo/bin/rustc	missing	install	tools/managed-rustup.json
+rustup	tool	cargo	1.95.0	-	/home/openchamber/.cargo/bin/cargo	missing	install	tools/managed-rustup.json
+[managed-tools] families=4 rows=22 missing=22 equal=0 lower=0 higher=0 unparseable=0

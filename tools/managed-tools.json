@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "requireUpstreamChecksum": true,
+    "allowDownloadAndHash": false,
+    "compareRules": {
+      "missing": "install",
+      "equal": "skip",
+      "lower": "upgrade",
+      "higher": "warn_skip",
+      "unparseable": "warn_skip"
+    }
+  },
+  "groups": {
+    "npm": {
+      "packageJson": "tools/managed-npm-package.json",
+      "packageLockJson": "tools/managed-npm-package-lock.json",
+      "installPrefix": "{USER_HOME}/.npm-global",
+      "installCommand": "npm ci --omit=dev --prefix {prefix}",
+      "versionCommand": "npm --version"
+    },
+    "go": {
+      "toolchainManifest": "tools/managed-go-toolchain.json",
+      "goMod": "tools/managed-go/go.mod",
+      "goSum": "tools/managed-go/go.sum",
+      "toolchainInstallPath": "{USER_HOME}/.go/toolchain",
+      "gobin": "{USER_HOME}/.go/bin",
+      "versionCheck": "go version -m"
+    },
+    "rustup": {
+      "rustupManifest": "tools/managed-rustup.json",
+      "rustupHome": "{USER_HOME}/.rustup",
+      "cargoHome": "{USER_HOME}/.cargo",
+      "installCommand": "rustup install {version}",
+      "versionCommand": "rustc --version"
+    },
+    "releaseBinaries": {
+      "manifest": "tools/managed-release-binaries.json",
+      "installDir": "{USER_HOME}/.local/bin",
+      "installScript": "scripts/install-managed-release-binaries.mjs",
+      "versionCommand": "{bin} --version"
+    }
+  },
+  "sources": {
+    "defaultRef": "main",
+    "fetchUrl": "https://raw.githubusercontent.com/SilverKnightKMA/open_chamber_docker/{ref}/tools/{path}",
+    "configFiles": [
+      "tools/managed-npm-package.json",
+      "tools/managed-npm-package-lock.json",
+      "tools/managed-go-toolchain.json",
+      "tools/managed-go/go.mod",
+      "tools/managed-go/go.sum",
+      "tools/managed-rustup.json",
+      "tools/managed-release-binaries.json"
+    ]
+  }
+}

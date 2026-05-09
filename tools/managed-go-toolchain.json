@@ -1,0 +1,6 @@
+{
+  "version": "1.26.2",
+  "checksum": "sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19",
+  "url": "https://go.dev/dl/go1.26.2.linux-amd64.tar.gz",
+  "installPath": ".go/toolchain"
+}

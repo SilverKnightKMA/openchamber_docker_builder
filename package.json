@@ -4,7 +4,18 @@
   "description": "Pinned npm toolchain packages baked into the OpenChamber Docker builder image.",
   "license": "MIT",
   "scripts": {
-    "validate:release-tools": "node scripts/validate-release-tools.mjs"
+    "validate:release-tools": "node scripts/validate-release-tools.mjs",
+    "managed:init": "node scripts/managed-tools.mjs init",
+    "managed:update": "node scripts/managed-tools.mjs update",
+    "managed:status": "node scripts/managed-tools-status.mjs",
+    "managed:npm:install": "node scripts/install-managed-npm-tools.mjs install",
+    "managed:npm:status": "node scripts/install-managed-npm-tools.mjs status",
+    "managed:go:install": "node scripts/install-managed-go-tools.mjs install",
+    "managed:go:status": "node scripts/install-managed-go-tools.mjs status",
+    "managed:release-binaries:install": "node scripts/install-managed-release-binaries.mjs install",
+    "managed:release-binaries:status": "node scripts/install-managed-release-binaries.mjs status",
+    "managed:rustup:install": "node scripts/install-managed-rustup.mjs install",
+    "managed:rustup:status": "node scripts/install-managed-rustup.mjs status"
   },
   "dependencies": {
     "@ast-grep/cli": "0.42.1",

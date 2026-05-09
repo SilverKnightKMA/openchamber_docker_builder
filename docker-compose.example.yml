@@ -13,6 +13,10 @@ services:
       OPENCODE_CONFIG_DIR: /home/openchamber/.config/opencode
       GIT_CONFIG_GLOBAL: /home/openchamber/.config/git/config
       UI_PASSWORD: change-me
+      # Managed tool bootstrap is opt-in. When enabled, the wrapper fetches pinned
+      # managed config from main, then installs into mounted homes before OpenChamber starts.
+      # OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL: "true"
+      # OPENCHAMBER_MANAGED_TOOLS_REF: "main"
       # Enable Docker-in-Docker for trusted deployments only. Requires privileged: true
       # plus the /var/lib/docker and /var/lib/containerd mounts below.
       # ENABLE_DIND: "true"
@@ -36,6 +40,11 @@ services:
       - ./data/cargo:/home/openchamber/.cargo
       - ./data/rustup:/home/openchamber/.rustup
       - ./data/go:/home/openchamber/.go
+      # Managed tool install locations inside mounted homes:
+      # - npm binaries: /home/openchamber/.npm-global/bin
+      # - release binaries: /home/openchamber/.local/bin
+      # - rustup/cargo: /home/openchamber/.cargo/bin
+      # - Go toolchain and tools: /home/openchamber/.go/toolchain/bin and /home/openchamber/.go/bin
       - ./data/nvim/config:/home/openchamber/.config/nvim
       - ./data/nvim/share:/home/openchamber/.local/share/nvim
       - ./data/nvim/state:/home/openchamber/.local/state/nvim

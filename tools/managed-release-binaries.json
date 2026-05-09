@@ -1,0 +1,17 @@
+{
+  "policy": {
+    "requireUpstreamChecksum": true,
+    "allowDownloadAndHash": false
+  },
+  "tools": [
+    {
+      "name": "gh",
+      "repo": "cli/cli",
+      "version": "v2.68.0",
+      "asset": "gh_2.68.0_linux_amd64.tar.gz",
+      "checksumAsset": "gh_2.68.0_checksums.txt",
+      "checksumFormat": "sha256sum",
+      "sha256": "dcd944ecd9905b62fbaf3fe3703af7d6f9a33bc8c36d8603af55cab0d3f67879"
+    }
+  ]
+}

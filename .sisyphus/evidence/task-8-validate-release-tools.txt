@@ -1,0 +1,5 @@
+
+> validate:release-tools
+> node scripts/validate-release-tools.mjs
+
+release tool manifest valid: 6 tools
