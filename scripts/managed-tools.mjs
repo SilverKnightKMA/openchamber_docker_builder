@@ -2,23 +2,30 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const command = process.argv[2] ?? "status";
 const refFlagIndex = process.argv.indexOf("--ref");
 const ref = refFlagIndex >= 0 ? process.argv[refFlagIndex + 1] : null;
 const dryRun = process.argv.includes("--dry-run");
-const positional = process.argv.slice(3).filter((arg, index, args) => args[index - 1] !== "--ref" && arg !== "--ref" && arg !== "--dry-run");
+const useLocalConfig = process.argv.includes("--local-config");
+const positional = process.argv.slice(3).filter(
+  (arg, index, args) =>
+    args[index - 1] !== "--ref" &&
+    arg !== "--ref" &&
+    arg !== "--dry-run" &&
+    arg !== "--local-config"
+);
 const configPath = positional[0] ?? "tools/managed-tools.json";
-const defaultFetchUrl = "https://raw.githubusercontent.com/SilverKnightKMA/open_chamber_docker/{ref}/{path}";
+const defaultFetchUrl = "https://raw.githubusercontent.com/SilverKnightKMA/openchamber_docker_builder/{ref}/{path}";
 
 function run(binary, args, options = {}) {
   return spawnSync(binary, args, { encoding: "utf8", stdio: "pipe", ...options });
 }
 
 function installerCommand(installedName, scriptPath, args) {
-  if (existsSync(scriptPath)) return ["node", [scriptPath, ...args]];
+  if (existsSync(scriptPath)) return ["node", [resolve(scriptPath), ...args]];
   return [installedName, args];
 }
 
@@ -44,7 +51,7 @@ async function fetchFromRaw(url) {
 }
 
 async function loadManagedConfig(effectiveRef) {
-  if (existsSync(configPath)) return await loadJson(configPath);
+  if (useLocalConfig && existsSync(configPath)) return await loadJson(configPath);
   const refName = effectiveRef ?? "main";
   const gitRef = refName.startsWith("origin/") ? refName : `origin/${refName}`;
   const gitContent = await fetchFromGit(gitRef, "tools/managed-tools.json");
@@ -57,17 +64,15 @@ async function loadManagedConfig(effectiveRef) {
 
 async function resolveSourceFile(managedConfig, sourcePath, effectiveRef) {
   const refName = effectiveRef ?? managedConfig.sources.defaultRef ?? "main";
+  if (useLocalConfig && existsSync(sourcePath)) return await readFile(sourcePath, "utf8");
   const gitRef = refName.startsWith("origin/") ? refName : `origin/${refName}`;
   const gitContent = await fetchFromGit(gitRef, sourcePath);
   if (gitContent !== null) return gitContent;
-
   const rawUrl = managedConfig.sources.fetchUrl
     .replaceAll("{ref}", parseCommandRef(refName) ?? refName)
     .replaceAll("{path}", sourcePath);
   const rawContent = await fetchFromRaw(rawUrl);
   if (rawContent !== null) return rawContent;
-
-  if (existsSync(sourcePath)) return await readFile(sourcePath, "utf8");
   throw new Error(`unable to fetch ${sourcePath} from ${refName}`);
 }
 
@@ -130,6 +135,30 @@ async function runInstallers(mode) {
   }
 }
 
+async function runStatus() {
+  const effectiveRef = ref ?? "main";
+  const managedConfig = await loadManagedConfig(effectiveRef);
+  const stagedDir = await stageManagedConfig(managedConfig, effectiveRef);
+  const stagedConfigPath = join(stagedDir, "tools/managed-tools.json");
+  await writeFile(stagedConfigPath, JSON.stringify(managedConfig, null, 2));
+  try {
+    const [statusBinary, statusArgs] = installerCommand(
+      "/usr/local/bin/managed-tools-status",
+      "scripts/managed-tools-status.mjs",
+      [stagedConfigPath]
+    );
+    const result = spawnSync(statusBinary, statusArgs, {
+      encoding: "utf8",
+      stdio: ["pipe", "inherit", "pipe"],
+      cwd: process.cwd(),
+    });
+    process.stderr.write(result.stderr ?? "");
+    process.exit(result.status ?? 0);
+  } finally {
+    await rm(stagedDir, { recursive: true, force: true });
+  }
+}
+
 if (refFlagIndex >= 0 && !ref) {
   console.error("--ref requires a ref name");
   process.exit(1);
@@ -138,12 +167,8 @@ if (refFlagIndex >= 0 && !ref) {
 if (command === "init" || command === "update" || command === "fetch") {
   await runInstallers("install");
 } else if (command === "status") {
-  const [statusBinary, statusArgs] = installerCommand("/usr/local/bin/managed-tools-status", "scripts/managed-tools-status.mjs", [configPath]);
-  const result = run(statusBinary, statusArgs, { cwd: process.cwd() });
-  process.stdout.write(result.stdout ?? "");
-  process.stderr.write(result.stderr ?? "");
-  process.exit(result.status ?? 0);
+  await runStatus();
 } else {
-  console.error("usage: managed-tools.mjs [init|update|fetch|status] [managed-tools.json] [--ref ref] [--dry-run]");
+  console.error("usage: managed-tools.mjs [init|update|fetch|status] [--local-config] [--ref ref] [--dry-run]");
   process.exit(1);
 }

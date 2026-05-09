@@ -79,6 +79,8 @@ function managedEnv() {
     ...process.env,
     GOBIN: gobin,
     GOROOT: toolchainDir,
+    GOPATH: join(userHome, ".go"),
+    GOMODCACHE: join(userHome, ".go", "pkg", "mod"),
     PATH: `${join(toolchainDir, "bin")}:${gobin}:${process.env.PATH ?? ""}`,
   };
 }
