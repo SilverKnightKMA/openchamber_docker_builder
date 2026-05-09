@@ -138,7 +138,8 @@ if (refFlagIndex >= 0 && !ref) {
 if (command === "init" || command === "update" || command === "fetch") {
   await runInstallers("install");
 } else if (command === "status") {
-  const result = run("node", ["scripts/managed-tools-status.mjs", configPath], { cwd: process.cwd() });
+  const [statusBinary, statusArgs] = installerCommand("/usr/local/bin/managed-tools-status", "scripts/managed-tools-status.mjs", [configPath]);
+  const result = run(statusBinary, statusArgs, { cwd: process.cwd() });
   process.stdout.write(result.stdout ?? "");
   process.stderr.write(result.stderr ?? "");
   process.exit(result.status ?? 0);

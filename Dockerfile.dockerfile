@@ -22,6 +22,7 @@ WORKDIR /home/openchamber
 
 COPY --from=toolchain scripts/openchamber-dind-entrypoint.sh /usr/local/bin/openchamber-dind-entrypoint
 COPY --from=toolchain scripts/managed-tools.mjs /usr/local/bin/managed-tools
+COPY --from=toolchain scripts/managed-tools-status.mjs /usr/local/bin/managed-tools-status
 COPY --from=toolchain scripts/install-managed-npm-tools.mjs /usr/local/bin/install-managed-npm-tools
 COPY --from=toolchain scripts/install-managed-go-tools.mjs /usr/local/bin/install-managed-go-tools
 COPY --from=toolchain scripts/install-managed-release-binaries.mjs /usr/local/bin/install-managed-release-binaries
@@ -83,6 +84,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && ln -sf /usr/bin/python3 /usr/local/bin/python \
   && chmod +x \
     /usr/local/bin/openchamber-dind-entrypoint \
+    /usr/local/bin/managed-tools-status \
     /usr/local/bin/managed-tools \
     /usr/local/bin/install-managed-npm-tools \
     /usr/local/bin/install-managed-go-tools \

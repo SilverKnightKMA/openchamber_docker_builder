@@ -29,3 +29,11 @@
 
 ## Task 9 - Baked-vs-mounted split blocker trim (2026-05-09)
 - No new issues. One initial `rg` pattern was malformed; rerun with fixed character classes and confirmed removed tools no longer match apt list.
+
+## Task 10 - managed-tools status runtime module-not-found (2026-05-09)
+- `managed-tools status` threw module-not-found inside container because `scripts/managed-tools-status.mjs` was not copied to the image. The status command hardcoded `node scripts/managed-tools-status.mjs` which only worked from repo root.
+- Fix: (1) Added `COPY scripts/managed-tools-status.mjs /usr/local/bin/managed-tools-status` to Dockerfile, (2) Added chmod +x for it, (3) Updated `scripts/managed-tools.mjs` to use `installerCommand("/usr/local/bin/managed-tools-status", "scripts/managed-tools-status.mjs", [configPath])` — prefers local dev file if present, falls back to installed binary in container.
+
+## Task 11 - chmod regression for install-managed-* scripts (2026-05-09)
+##
+- Fixing Dockerfile chmod regression: adding back chmod +x entries for install-managed-npm-tools, install-managed-go-tools, install-managed-release-binaries, install-managed-rustup that were dropped during managed-tools-status copy addition.
