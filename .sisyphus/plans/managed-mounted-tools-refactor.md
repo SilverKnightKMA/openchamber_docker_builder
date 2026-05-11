@@ -108,6 +108,8 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 
 ### Definition of Done (verifiable conditions with commands)
 - [ ] `docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:managed-refactor openchamber` succeeds from a valid upstream + builder workspace.
+- [ ] A real container starts from the built image and OpenChamber serves successfully on its configured port.
+- [ ] User-invoked managed-tool init/update performs a real fetch from this repository and installs/updates at least one mounted tool in a real mounted volume.
 - [ ] `docker history openchamber:managed-refactor` shows no baked `neovim`, `vim`, or `tmux` layers and no baked `gh`/Go toolchain/tooling layers beyond the agreed bootstrap set.
 - [ ] Init/status scripts install a missing tool, skip an equal version, upgrade a lower version, and warn+skip a higher version for at least one npm, one Go, and one release-binary example.
 - [ ] Managed tools are installed into mounted paths only: `~/.local/bin`, `~/.npm-global`, `~/.go`, `~/.cargo`, `~/.rustup`, `~/.local/pip`.
@@ -131,12 +133,16 @@ Reduce the baked image to only the core runtime and unavoidable system features,
 - No reintroduction of `neovim`, `vim`, or `tmux` into the image.
 - No default startup network install of user-mounted tools.
 - No hidden automatic downgrade of newer user-mounted tools.
+- No mocked config, fake installer, offline-only proof, or dry-run-only verification may count as passing final tests.
+- No task may be marked complete without concrete evidence from a real build/run/install path.
 
 ## Verification Strategy
 > ZERO HUMAN INTERVENTION - all verification is agent-executed.
 - Test decision: tests-after + scripted verification, using the repo's existing Docker build and image inspection commands.
 - QA policy: every task includes agent-executed install/compare scenarios.
 - Startup policy: Docker startup must not require network access for managed user tools unless explicit auto-install env is enabled.
+- Live-system policy: this repo backs a live image, so pass/fail requires real evidence from actual Docker build, container startup, live config fetch, and real mounted-volume install/update behavior.
+- Mock/offline policy: mock config, fixture-only tests, dry-run-only installs, or offline build-only checks are useful diagnostics but never sufficient for acceptance.
 - Evidence: `.sisyphus/evidence/task-{N}-{slug}.{ext}`
 
 ## Execution Strategy
@@ -448,7 +454,7 @@ Wave 4: compose/docs/verification and final audit
 
 - [ ] 8. Final validation sweep and documentation update
 
-  **What to do**: Run build/image inspection/compare checks, verify the baked-vs-mounted split, and update docs with the final supported tool categories and upgrade rules.
+  **What to do**: Run real build/image inspection/container startup/managed-tool init-update checks, verify the baked-vs-mounted split, and update docs with the final supported tool categories and upgrade rules.
   **Must NOT do**: Do not reintroduce deleted tools or silently modify the approved baked set.
 
   **Recommended Agent Profile**:
@@ -465,6 +471,8 @@ Wave 4: compose/docs/verification and final audit
 
   **Acceptance Criteria**:
   - [ ] Build succeeds.
+  - [ ] A real container starts and OpenChamber responds successfully.
+  - [ ] Managed-tool init/update fetches config from this repository and installs/updates at least one mounted tool in a real mounted volume.
   - [ ] Layer/history inspection confirms the intended baked core only.
   - [ ] Docs explain the final three-tier model: baked core, managed mounted tools, custom mounted tools.
 
@@ -475,6 +483,18 @@ Wave 4: compose/docs/verification and final audit
     Steps: Build the image, inspect its history, and verify the intended tool split.
     Expected: The final image matches the approved split.
     Evidence: .sisyphus/evidence/task-8-build-inspect.txt
+
+  Scenario: live container startup
+    Tool: Bash
+    Steps: Start a real container from the built image, probe the OpenChamber HTTP port, and capture logs.
+    Expected: Container stays running and OpenChamber responds successfully.
+    Evidence: .sisyphus/evidence/task-8-live-container.txt
+
+  Scenario: real mounted tool update
+    Tool: Bash
+    Steps: Run the user-invoked managed-tool init/update command against a real temporary mounted volume and real repo-fetched config.
+    Expected: At least one mounted tool is installed or updated from the fetched config with checksum/version evidence.
+    Evidence: .sisyphus/evidence/task-8-real-mounted-update.txt
 
   Scenario: docs match behavior
     Tool: Bash
@@ -489,6 +509,7 @@ Wave 4: compose/docs/verification and final audit
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
+> **Live evidence required**: final approval requires concrete evidence from a real Docker build, real container startup, real repo config fetch, and real mounted tool install/update. Mocked/offline-only evidence is insufficient.
 - [ ] F1. Plan Compliance Audit — oracle
 - [ ] F2. Code Quality Review — unspecified-high
 - [ ] F3. Real Manual QA — unspecified-high (+ playwright if UI)
@@ -506,3 +527,4 @@ Wave 4: compose/docs/verification and final audit
 - Go tool version checks use `go version -m`; user-mounted metadata is not trusted.
 - Deleted tools are absent from the final image.
 - The repo documents the final baked vs managed split clearly.
+- Final pass includes live evidence, not mocked config or dry-run-only verification.
