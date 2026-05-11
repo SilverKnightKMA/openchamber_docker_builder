@@ -170,7 +170,7 @@ jobs:
           cd upstream
           docker build \
             -f ../builder/Dockerfile.dockerfile \
-            --build-context toolchain=builder \
+            --build-context toolchain=../builder \
             --build-arg VERSION="${{ steps.upstream.outputs.sha }}" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -t "${{ steps.tags.outputs.check_tag }}" \

@@ -51,3 +51,7 @@
 ## Build Upstream Main Docker Tag Fix (2026-05-11)
 
 - Run 25678792900 failed because raw `docker build -t` was given comma-separated tags from `steps.tags.outputs.tags`. Raw Docker requires one `-t` per tag; only docker/build-push-action accepts comma-separated tag lists. Fixed by adding `latest_tag` output and using separate `-t check_tag` and `-t latest_tag` args.
+
+## Build Upstream Main Build Context Fix (2026-05-11)
+
+- Run 25679390178 still failed after tag fix (25678792900). Raw `docker build` after `cd upstream` could not find `builder` directory because working directory is now `upstream/`, but `--build-context toolchain=builder` referenced a non-existent `upstream/builder`. Fixed by changing to `--build-context toolchain=../builder`, which correctly resolves to the checked-out builder repo from the upstream directory. Release workflow uses docker/build-push-action with `context: upstream` and `build-contexts: toolchain=builder` (interpreted relative to workspace root, not affected by `cd upstream`), so it remains unchanged.
