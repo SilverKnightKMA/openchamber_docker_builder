@@ -47,3 +47,7 @@
 
 - `managed-tools/` (directory) was added to `files=(` arrays in both build workflows, but the fingerprint loop uses `if [ ! -f "${file}" ]` and `sha256sum "${file}"` which fail on directories. Fixed by replacing with explicit `managed-tools/manifest.json` and `managed-tools/policy.json` entries. Path filters `managed-tools/**` remain untouched — they are fine in path filters, only in `files=(` where file operations are performed.
 - Lesson: `files=(` arrays feeding `sha256sum` should never contain directory paths. Use explicit file lists. Path filters in `on.pull_request.paths` are glob-based and handle `**` wildcards correctly for directories — no functional issue there, but the `files=(` array is for file hashing.
+
+## Build Upstream Main Docker Tag Fix (2026-05-11)
+
+- Run 25678792900 failed because raw `docker build -t` was given comma-separated tags from `steps.tags.outputs.tags`. Raw Docker requires one `-t` per tag; only docker/build-push-action accepts comma-separated tag lists. Fixed by adding `latest_tag` output and using separate `-t check_tag` and `-t latest_tag` args.

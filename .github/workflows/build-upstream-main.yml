@@ -139,6 +139,7 @@ jobs:
           VERSION_TAG="main-u${{ steps.upstream.outputs.short_sha }}-b${{ steps.builder_scope.outputs.builder_scope_short_sha }}"
           {
             echo "version_tag=${VERSION_TAG}"
+            echo "latest_tag=${IMAGE}:latest"
             echo "tags=${IMAGE}:latest,${IMAGE}:${VERSION_TAG}"
             echo "check_tag=${IMAGE}:${VERSION_TAG}"
           } >> "$GITHUB_OUTPUT"
@@ -173,7 +174,7 @@ jobs:
             --build-arg VERSION="${{ steps.upstream.outputs.sha }}" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -t "${{ steps.tags.outputs.check_tag }}" \
-            -t "${{ steps.tags.outputs.tags }}" \
+            -t "${{ steps.tags.outputs.latest_tag }}" \
             .
           echo "Built and tagged: ${{ steps.tags.outputs.tags }}"
           if [ "${{ github.event_name }}" != "pull_request" ]; then
