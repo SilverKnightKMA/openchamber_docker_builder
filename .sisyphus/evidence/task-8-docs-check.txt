@@ -1,0 +1,49 @@
+Task 8 documentation and behavior alignment evidence - 2026-05-11
+
+Files reviewed:
+- README.md
+- SECURITY.md
+- Dockerfile.dockerfile
+- docker-compose.example.yml
+- package.json
+- managed-tools/manifest.json
+- managed-tools/policy.json
+- scripts/managed-npm-tools.mjs
+- scripts/managed-go-tools.mjs
+- scripts/managed-mounted-tools.mjs
+- scripts/managed-tools-status.mjs
+- scripts/openchamber-dind-entrypoint.sh
+- tools/release-tools.json
+- Task 1-7 evidence files under .sisyphus/evidence/
+- Notepads under .sisyphus/notepads/managed-mounted-tools-refactor/
+
+Documentation updates made:
+- README now documents the final three-tier model: baked core, managed mounted tools, and custom mounted tools.
+- README now states Go, Rust/Cargo, GitHub CLI, Neovim, tmux, npm LSP/dev tools, and release-managed binaries are not baked into the final image.
+- README now documents manual managed commands: managed-tools:status, managed-tools:report, managed-tools:compare, managed-tools:init, plus per-family init commands and filtered mounted init such as yq.
+- README now states there is no separate update command; rerun managed-tools:init to install missing or lower versions, and higher/unparseable installed tools warn and skip.
+- README now documents startup autoinstall via OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true and its trust/writable-mount requirements.
+- README now documents managed mount paths and PATH order: ~/.local/bin, ~/.npm-global/bin, ~/.local/go/bin, ~/.go/bin, ~/.cargo/bin, ~/.local/pip/bin, ~/.bun/bin, then baked/core paths.
+- README now describes marksman and docker-langserver as managed mounted tools after initialization, not baked tools.
+- SECURITY now keeps policy-focused guidance while adding that managed npm/release tools install into mounted paths only when initialized and that autoinstall should be enabled only for trusted deployments.
+
+Stale docs search command:
+  rg -n 'Dockerfile `go install`|go install steps|Go is copied|\buv\b|marksman` is baked|docker-langserver` is also baked|baked `pnpm`|Baked tools in|Authenticate GitHub CLI' "README.md" "SECURITY.md"
+Output:
+  no matches
+
+Static docs/behavior comparison:
+- Dockerfile prunes /opt/openchamber/opencode-core package metadata to only opencode-ai before npm ci; README says npm LSP/dev tools are managed-mounted, not baked.
+- Dockerfile copies managed manifests/scripts under /opt/openchamber/managed-tools but does not call install-release-tools.sh or copy tools/release-tools.json into the image; README says managed tool payloads install on demand.
+- docker-compose.example.yml mounts .local/bin, .npm-global, .local/go, .go, .cargo, .rustup, .local/pip, and .bun; README lists those persisted paths.
+- Dockerfile and entrypoint PATH order match README: .local/bin, .npm-global/bin, .local/go/bin, .go/bin, .cargo/bin, .local/pip/bin, .bun/bin, then baked/core paths.
+- scripts/openchamber-dind-entrypoint.sh gates managed tool installation on OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true and runs npm run --prefix /opt/openchamber/managed-tools managed-tools:init; README and SECURITY document the opt-in behavior.
+- package.json exposes managed-tools:init/status/report/compare and per-family scripts; README documents those commands.
+- managed-tools/policy.json compare policy is missing=install, equal=skip, lower=upgrade, higher=warn_and_skip, unparseable=warn_and_skip; README documents the same upgrade rules.
+
+Diagnostics:
+- lsp_diagnostics README.md severity=all: no diagnostics found.
+- lsp_diagnostics SECURITY.md severity=all: no diagnostics found.
+
+Result:
+- PASS. Docs now match the current scripts/config/compose behavior as far as locally verifiable without a built image.

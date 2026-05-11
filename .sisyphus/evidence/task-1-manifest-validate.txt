@@ -1,0 +1,44 @@
+# Task 1: Manifest Validation Evidence
+# Generated: 2026-05-11
+# Status: PASS
+
+## Validation Script
+node --input-type=module (inline) validates manifest.json + policy.json
+
+## Families Validated
+
+| Family | Tool Count | Install Path | Source Type |
+|--------|-----------|--------------|-------------|
+| npm | 14 | ~/.npm-global | package-lock-v3 |
+| go_toolchain | 1 | ~/.local/go | tarball |
+| go_tools | 2 | ~/.go/bin | go-mod |
+| gh | 1 | ~/.local/bin/gh | github-release-asset |
+| release_binaries | 6 | ~/.local/bin | github-release-asset |
+| llvm_tools | 2 | ~/.local/bin | github-release-asset |
+| cmake | 1 | ~/.local/bin | github-release-asset |
+| protobuf | 1 | ~/.local/bin | github-release-asset |
+| rustup | 2 | ~/.rustup | rustup-toolchain |
+
+Total tools across all families: 30
+
+## Required Fields Per Tool
+- [x] name: present on all 30 tools
+- [x] version: present on all 30 tools
+- [x] source type: present on all 9 families
+- [x] install path: present on all 9 families
+- [x] comparison policy: present (missing/equal/lower/higher/unparseable)
+
+## Required Fields Per Family
+- [x] tools array: present on all families
+- [x] installPath: present on all families
+- [x] sourceType: present on all families
+- [x] comment: present on all families
+
+## Checksum Policy Coverage
+- requireUpstreamChecksum: gh, yq, actionlint, hadolint, ruff, scc, clang-format, cmake
+- allowGithubDigest: marksman, clangd, protobuf-compiler
+- upstreamOrGithubDigest: (documented as fallback)
+
+## Validation Result
+STATUS: PASS
+Issues: None

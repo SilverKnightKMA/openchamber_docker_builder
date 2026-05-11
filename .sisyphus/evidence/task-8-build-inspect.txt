@@ -1,0 +1,84 @@
+Task 8 build/history/static inspection evidence - 2026-05-11
+
+Full Docker build/history inspection:
+- Expected upstream context path from this workspace: /home/openchamber/workspaces/openchamber
+- Context check command run:
+  python3 - <<'PY'
+  from pathlib import Path
+  upstream = Path('../openchamber')
+  print(f'cwd={Path.cwd()}')
+  print(f'expected_upstream_context={upstream.resolve()}')
+  print(f'upstream_context_exists={upstream.is_dir()}')
+  print('build_command=docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:task-8 openchamber')
+  print('run_command=docker run --rm -p 3000:3000 openchamber:task-8')
+  if not upstream.is_dir():
+      print('blocker=expected upstream openchamber/ context is absent; full Docker build and live container startup skipped')
+  PY
+- Output:
+  cwd=/home/openchamber/workspaces/open_chamber_docker
+  expected_upstream_context=/home/openchamber/workspaces/openchamber
+  upstream_context_exists=False
+  build_command=docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:task-8 openchamber
+  run_command=docker run --rm -p 3000:3000 openchamber:task-8
+  blocker=expected upstream openchamber/ context is absent; full Docker build and live container startup skipped
+
+Static Dockerfile baked-core split check:
+- Command run:
+  python3 - <<'PY'
+  from pathlib import Path
+  text = Path('Dockerfile.dockerfile').read_text()
+  checks = {
+      'apt neovim': ' neovim \\' in text,
+      'apt vim': ' vim \\' in text,
+      'apt tmux': ' tmux \\' in text,
+      'apt gh': ' gh \\' in text,
+      'github cli apt repo': 'cli.github.com' in text,
+      'FROM golang': 'FROM golang' in text,
+      'go-runtime stage': 'AS go-runtime' in text,
+      'go install in Dockerfile': 'go install' in text,
+      'apt rustc': ' rustc \\' in text,
+      'apt cargo': ' cargo \\' in text,
+      'install-release-tools': 'install-release-tools' in text,
+      'release-tools manifest copy': 'release-tools.json' in text,
+      'cloudflared stage': 'AS cloudflared' in text,
+      'cloudflared copy': 'COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared' in text,
+      'docker-dind stage': 'AS docker-dind' in text,
+      'docker binary copy': 'COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/' in text,
+      'docker cli plugins copy': 'COPY --from=docker-dind /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/' in text,
+  }
+  for name, present in checks.items():
+      print(f'{name}: {"present" if present else "absent"}')
+  missing_required = [name for name in ['cloudflared stage','cloudflared copy','docker-dind stage','docker binary copy','docker cli plugins copy'] if not checks[name]]
+  forbidden_present = [name for name in ['apt neovim','apt vim','apt tmux','apt gh','github cli apt repo','FROM golang','go-runtime stage','go install in Dockerfile','apt rustc','apt cargo','install-release-tools','release-tools manifest copy'] if checks[name]]
+  if missing_required or forbidden_present:
+      raise SystemExit(f'missing_required={missing_required} forbidden_present={forbidden_present}')
+  PY
+- Output:
+  apt neovim: absent
+  apt vim: absent
+  apt tmux: absent
+  apt gh: absent
+  github cli apt repo: absent
+  FROM golang: absent
+  go-runtime stage: absent
+  go install in Dockerfile: absent
+  apt rustc: absent
+  apt cargo: absent
+  install-release-tools: absent
+  release-tools manifest copy: absent
+  cloudflared stage: present
+  cloudflared copy: present
+  docker-dind stage: present
+  docker binary copy: present
+  docker cli plugins copy: present
+- Result: PASS for local static/layer-intent checks. Full image layer/history inspection was blocked by absent upstream build context.
+
+Other local validation commands run:
+- for script in scripts/*.mjs; do node --check "$script" || exit 1; done
+  Result: exit 0.
+- sh -n scripts/openchamber-dind-entrypoint.sh
+  Result: exit 0.
+- npm run validate:release-tools
+  Output: release tool manifest valid: 6 tools
+- docker compose -f docker-compose.example.yml config
+  Result: exit 0; rendered compose config includes managed mounts for .npm-global, .bun, .local/bin, .local/go, .local/pip, .cargo, .rustup, .go, plus cloudflared/config/auth/workspace mounts.

@@ -1,0 +1,8 @@
+VERDICT: APPROVE
+sh -n scripts/install-release-tools.sh scripts/openchamber-dind-entrypoint.sh: PASS
+node --check managed/update/validate scripts: PASS
+docker compose -f docker-compose.example.yml config: PASS
+npm run validate:release-tools: PASS (release tool manifest valid: 6 tools)
+npm run --silent managed-tools:report with isolated temp roots: PASS
+filtered mounted yq install: PASS (yq v4.53.2 installed, sha256 d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b, status equal)
+full Docker build/live startup: KNOWN BLOCKER ONLY, ../openchamber absent; documented in task-8-build-inspect.txt and task-8-live-container.txt

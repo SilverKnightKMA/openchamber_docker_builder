@@ -1,0 +1,67 @@
+Task 2 Core Runtime Preservation Check
+Date: 2026-05-11
+
+Scope
+- Refactored Dockerfile.dockerfile to remove moved/deleted baked tool layers while preserving baked OpenChamber runtime, opencode core, cloudflared, Docker/DinD binaries/plugins, Node/npm, Bun runtime, and approved apt bootstrap packages.
+- Full image build/runtime command checks were skipped because the expected upstream build context ../openchamber is absent in this workspace.
+- Task 10 should run this from a parent directory containing both openchamber/ and open_chamber_docker/:
+  docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:managed-refactor openchamber
+  docker run --rm openchamber:managed-refactor sh -lc 'command -v opencode cloudflared docker dockerd containerd runc && test -d /home/openchamber/node_modules && test -d /home/openchamber/packages/web/dist'
+
+Static core preservation check
+Command:
+  python3 - <<'PY'
+  from pathlib import Path
+  text = Path('Dockerfile.dockerfile').read_text()
+  required = {
+      'node-runtime stage': 'AS node-runtime' in text,
+      'cloudflared stage': 'AS cloudflared' in text,
+      'docker-dind stage': 'AS docker-dind' in text,
+      'cloudflared copy': 'COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared' in text,
+      'docker binaries copy': 'COPY --from=docker-dind /usr/local/bin/ /usr/local/bin/' in text,
+      'docker cli plugins copy': 'COPY --from=docker-dind /usr/local/libexec/docker/cli-plugins/ /usr/local/libexec/docker/cli-plugins/' in text,
+      'dind entrypoint copy': 'scripts/openchamber-dind-entrypoint.sh /usr/local/bin/openchamber-dind-entrypoint' in text,
+      'opencode package copy': 'package.json package-lock.json /opt/openchamber/opencode-core/' in text,
+      'opencode install': 'npm ci --omit=dev --prefix /opt/openchamber/opencode-core' in text,
+      'opencode symlink': '/usr/local/bin/opencode' in text,
+      'OpenChamber entrypoint copy': '/home/openchamber/openchamber-entrypoint.sh' in text,
+      'OpenChamber node_modules copy': 'COPY --from=app-builder /app/node_modules ./node_modules' in text,
+      'OpenChamber web dist copy': 'COPY --from=app-builder /app/packages/web/dist ./packages/web/dist' in text,
+      'DinD volumes': 'VOLUME ["/var/lib/docker", "/var/lib/containerd"]' in text,
+  }
+  for name, present in required.items():
+      print(f'{name}: {"present" if present else "missing"}')
+  PY
+Output:
+  node-runtime stage: present
+  cloudflared stage: present
+  docker-dind stage: present
+  cloudflared copy: present
+  docker binaries copy: present
+  docker cli plugins copy: present
+  dind entrypoint copy: present
+  opencode package copy: present
+  opencode install: present
+  opencode symlink: present
+  OpenChamber entrypoint copy: present
+  OpenChamber node_modules copy: present
+  OpenChamber web dist copy: present
+  DinD volumes: present
+
+Approved apt bootstrap/core list check
+Output:
+  apt packages: bash build-essential ca-certificates curl dnsutils file git git-lfs iproute2 iputils-ping iptables jq kmod less lsof nano netcat-openbsd openssh-client procps psmisc python3 python3-pip python3-venv rsync sudo tar unzip xz-utils
+  missing approved: none
+  extra packages: none
+
+Dockerfile/static validation
+Command:
+  docker buildx build --check -f Dockerfile.dockerfile --build-context toolchain=. .
+Output:
+  Check complete, no warnings found.
+
+LSP diagnostics
+Command:
+  lsp_diagnostics Dockerfile.dockerfile severity=all
+Output:
+  No diagnostics found.

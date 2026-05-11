@@ -172,7 +172,7 @@ Wave 4: compose/docs/verification and final audit
 > Implementation + Test = ONE task. Never separate.
 > EVERY task MUST have: Agent Profile + Parallelization + QA Scenarios.
 
-- [ ] 1. Define repo-hosted managed-tools config and version policy
+- [x] 1. Define repo-hosted managed-tools config and version policy
 
   **What to do**: Create the source-of-truth managed-tools config layout in this repository, define per-ecosystem fields for npm, Go toolchain, Go tools, release binaries, Rust toolchain, and `gh`, and codify compare rules and normalization strategy. The Docker image must not bake this config; it only bakes scripts that fetch it.
   **Must NOT do**: Do not trust user-mounted metadata as authoritative state; do not mix baked tool versions into mounted state files.
@@ -212,7 +212,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `.sisyphus/plans/managed-mounted-tools-refactor.md`
 
-- [ ] 2. Refactor Dockerfile to a smaller baked core
+- [x] 2. Refactor Dockerfile to a smaller baked core
 
   **What to do**: Remove baked dev/support tools that are moving to mounted management, keep core OpenChamber runtime, opencode, cloudflared, DinD, bootstrap essentials, `build-essential`, `python3-pip`, `python3-venv`, `nano`, `git-lfs`, and the agreed system/network tools; delete `neovim`, `vim`, and `tmux` from the image.
   **Must NOT do**: Do not remove DinD, cloudflared, or the OpenChamber runtime; do not move core bootstrap dependencies out of the image.
@@ -253,7 +253,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `Dockerfile.dockerfile`
 
-- [ ] 3. Implement managed npm installer and status checks
+- [x] 3. Implement managed npm installer and status checks
 
   **What to do**: Add an init/status script path for npm-managed tools that uses `npm ci` plus lockfile/pinned versions for the selected tool set, installs into `~/.npm-global`, and performs compare logic without trusting mounted metadata.
   **Must NOT do**: Do not use `npm install -g` without lockfile support for the managed npm bundle; do not write authoritative version state into mounted metadata alone.
@@ -293,7 +293,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: `Dockerfile.dockerfile`, new managed-tools files
 
-- [ ] 4. Implement managed Go toolchain and Go tool installation
+- [x] 4. Implement managed Go toolchain and Go tool installation
 
   **What to do**: Add support for downloading a pinned Go toolchain tarball into a mounted volume, verifying SHA256, extracting it, and then installing `gopls` and `shfmt` via a baked `go.mod`/`go.sum` with `-mod=readonly`. Use `go version -m` for version detection.
   **Must NOT do**: Do not trust mounted metadata as source of truth; do not use Go tool version records written only by the user.
@@ -334,7 +334,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools files, Dockerfile/compose docs as needed
 
-- [ ] 5. Implement managed release-binary and rustup installers
+- [x] 5. Implement managed release-binary and rustup installers
 
   **What to do**: Add managed install logic for release-binary/archive tools (`gh`, `clangd`, `clang-format`, `cmake`, `protobuf-compiler`, `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, `scc`) and Rust toolchain via `rustup`, with pinned versions and compare rules.
   **Must NOT do**: Do not use apt for these managed tools; do not trust mounted metadata alone.
@@ -374,7 +374,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools files, Dockerfile/compose docs as needed
 
-- [ ] 6. Update compose/env/path wiring for managed mounted tools
+- [x] 6. Update compose/env/path wiring for managed mounted tools
 
   **What to do**: Update `docker-compose.example.yml`, entrypoint defaults, and PATH/setup behavior so mounted managed tools are discovered from the correct directories and initialized in the right order.
   **Must NOT do**: Do not break the existing mount conventions; do not require user-written metadata to determine trust.
@@ -413,7 +413,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: compose/docs/runtime wiring files
 
-- [ ] 7. Add status/reporting and explicit compare diagnostics
+- [x] 7. Add status/reporting and explicit compare diagnostics
 
   **What to do**: Implement a status command/script that reports desired vs actual versions for every managed tool family using the agreed compare sources (`npm lockfile`, `go version -m`, `rustup`, release binary version/checksum, and command version fallback where appropriate).
   **Must NOT do**: Do not trust mounted metadata as the only source of truth; do not silently downgrade newer mounted tools.
@@ -452,7 +452,7 @@ Wave 4: compose/docs/verification and final audit
 
   **Commit**: NO | Files: new managed-tools scripts
 
-- [ ] 8. Final validation sweep and documentation update
+- [x] 8. Final validation sweep and documentation update
 
   **What to do**: Run real build/image inspection/container startup/managed-tool init-update checks, verify the baked-vs-mounted split, and update docs with the final supported tool categories and upgrade rules.
   **Must NOT do**: Do not reintroduce deleted tools or silently modify the approved baked set.
@@ -510,10 +510,10 @@ Wave 4: compose/docs/verification and final audit
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
 > **Live evidence required**: final approval requires concrete evidence from a real Docker build, real container startup, real repo config fetch, and real mounted tool install/update. Mocked/offline-only evidence is insufficient.
-- [ ] F1. Plan Compliance Audit — oracle
-- [ ] F2. Code Quality Review — unspecified-high
-- [ ] F3. Real Manual QA — unspecified-high (+ playwright if UI)
-- [ ] F4. Scope Fidelity Check — deep
+- [x] F1. Plan Compliance Audit — oracle
+- [x] F2. Code Quality Review — unspecified-high
+- [x] F3. Real Manual QA — unspecified-high (+ playwright if UI)
+- [x] F4. Scope Fidelity Check — deep
 
 ## Commit Strategy
 - No commit unless the user explicitly asks for one later.

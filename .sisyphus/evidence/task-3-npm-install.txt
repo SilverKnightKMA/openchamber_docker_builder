@@ -1,0 +1,8 @@
+Isolated smoke root: /tmp/opencode/managed-npm-smoke-19oAn8
+Install command: HOME=/tmp/opencode/managed-npm-smoke-19oAn8/home MANAGED_NPM_PREFIX=/tmp/opencode/managed-npm-smoke-19oAn8/npm-global npm run managed-tools:npm:init
+Status command: HOME=/tmp/opencode/managed-npm-smoke-19oAn8/home MANAGED_NPM_PREFIX=/tmp/opencode/managed-npm-smoke-19oAn8/npm-global npm run managed-tools:npm:status
+Binary check: /tmp/opencode/managed-npm-smoke-19oAn8/npm-global/bin/pyright exists and runs with --help
+Successful smoke root: /tmp/opencode/managed-npm-smoke-xewiqy
+Init log: npm ci completed with only npm notices
+Status log: pyright through @vue/language-server all reported equal against pinned versions
+Binary check: /tmp/opencode/managed-npm-smoke-xewiqy/npm-global/bin/pyright --help printed usage output

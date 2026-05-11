@@ -1,0 +1,18 @@
+Rust compare/status smoke
+
+Command:
+`node scripts/managed-mounted-tools.mjs status` with temp `MANAGED_RUSTUP_HOME` and `MANAGED_CARGO_HOME`, plus fixture `rustc 1.87.0`.
+
+Outcome:
+- `rustc` and `cargo` reported `lower` versus pinned `1.88.0`.
+
+Command:
+`node scripts/managed-mounted-tools.mjs compare` with temp homes, plus fixture `rustc 1.89.0`.
+
+Outcome:
+- Rust toolchain reported `higher` and skipped downgrade.
+- Real rustup install command path exists: `rustup toolchain install stable --profile default --no-self-update` with mounted `RUSTUP_HOME` and `CARGO_HOME`.
+- Network rustup install was skipped in smoke to avoid heavy toolchain download.
+
+Filtered-path note:
+- `node scripts/managed-mounted-tools.mjs compare yq` and `init yq` no longer touch rustup flow.

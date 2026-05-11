@@ -1,0 +1,35 @@
+Task 6 clean bootstrap evidence
+
+Syntax and static validation:
+- sh -n scripts/openchamber-dind-entrypoint.sh: exit 0
+- node --check scripts/managed-npm-tools.mjs: exit 0
+- node --check scripts/managed-go-tools.mjs: exit 0
+- node --check scripts/managed-mounted-tools.mjs: exit 0
+- npm run validate:release-tools: exit 0, release tool manifest valid: 6 tools
+
+Empty-root aggregate compare:
+- Command: MANAGED_NPM_PREFIX=/tmp/opencode/task-6-empty-roots-aggregate/npm-global MANAGED_GO_ROOT=/tmp/opencode/task-6-empty-roots-aggregate/local-go GOBIN=/tmp/opencode/task-6-empty-roots-aggregate/go/bin MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-6-empty-roots-aggregate/local-bin MANAGED_RUSTUP_HOME=/tmp/opencode/task-6-empty-roots-aggregate/rustup MANAGED_CARGO_HOME=/tmp/opencode/task-6-empty-roots-aggregate/cargo npm run managed-tools:compare
+- Result: exit 0; compare mode reported missing/install actions without installing or fetching network artifacts.
+- Observed families: npm tools including pyright/eslint/prettier/typescript-language-server/dockerfile-language-server-nodejs/@biomejs/biome/@ast-grep/cli, Go go/gopls/shfmt, mounted release tools gh/yq/actionlint/marksman/hadolint/ruff/scc/clangd/clang-format/cmake/protobuf-compiler, and Rust toolchain.
+
+Filtered mounted compare:
+- Command: MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-6-empty-roots-filtered/local-bin MANAGED_RUSTUP_HOME=/tmp/opencode/task-6-empty-roots-filtered/rustup MANAGED_CARGO_HOME=/tmp/opencode/task-6-empty-roots-filtered/cargo npm run managed-tools:mounted:compare -- yq
+- Result: exit 0; output was [install] yq missing -> install 4.53.2 (install).
+
+Default startup no-autoinstall harness:
+- Command ran ENABLE_DIND=false /bin/sh scripts/openchamber-dind-entrypoint.sh with temporary fixture sh/npm in /home/openchamber/.local/bin; fixture npm would exit 70 if called.
+- Result: status=0.
+- Observed delegate only: delegate args=/home/openchamber/openchamber-entrypoint.sh PATH=/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.local/go/bin:/home/openchamber/.go/bin:/home/openchamber/.cargo/bin:/home/openchamber/.local/pip/bin:/home/openchamber/.bun/bin:/opt/openchamber/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:...
+- No npm line was written, proving default startup did not run managed-tool install.
+
+Explicit autoinstall harness:
+- Command ran ENABLE_DIND=false OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true /bin/sh scripts/openchamber-dind-entrypoint.sh with temporary fixture sh/npm in /home/openchamber/.local/bin; fixture npm returned 0 to avoid real network installs.
+- Result: status=0.
+- Observed stdout: [managed-tools] installing missing or outdated managed mounted tools...
+- Observed npm call: npm args=run --prefix /opt/openchamber/managed-tools managed-tools:init PATH=/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.local/go/bin:/home/openchamber/.go/bin:/home/openchamber/.cargo/bin:/home/openchamber/.local/pip/bin:/home/openchamber/.bun/bin:/opt/openchamber/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:...
+- Observed delegate after autoinstall: delegate args=/home/openchamber/openchamber-entrypoint.sh PATH=/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.local/go/bin:/home/openchamber/.go/bin:/home/openchamber/.cargo/bin:/home/openchamber/.local/pip/bin:/home/openchamber/.bun/bin:/opt/openchamber/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:...
+
+Manual shell surface QA:
+- Launched tmux session task6qa.
+- Ran sh -n scripts/openchamber-dind-entrypoint.sh, node --check scripts/managed-mounted-tools.mjs, and npm run managed-tools:mounted:compare -- yq; observed yq missing/install compare output and task6qa-ok.
+- Bad input check: node scripts/managed-mounted-tools.mjs invalid-command returned status 1 with Error: unknown command: invalid-command.

@@ -19,6 +19,11 @@ services:
       # Enable only one optional oh-my-opencode package at a time.
       # OH_MY_OPENCODE: "true"
       # OH_MY_OPENCODE_SLIM: "true"
+      # Optional: install/update managed mounted tools at startup. Default startup
+      # does not fetch tools; run only for trusted networks and writable mounts.
+      # OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL: "true"
+      # Managed install roots are baked into the image env: .npm-global,
+      # .local/go, .go, .cargo, .rustup, .local/pip, and .bun.
     restart: unless-stopped
     volumes:
       - ./data/config/openchamber:/home/openchamber/.config/openchamber
@@ -29,9 +34,12 @@ services:
       - ./data/workspaces:/home/openchamber/workspaces
       - ./data/config/git:/home/openchamber/.config/git
       - ./data/config/gh:/home/openchamber/.config/gh
+      # Managed tool mounts feed PATH from .local/bin, .npm-global/bin,
+      # .local/go/bin, .go/bin, .cargo/bin, .local/pip/bin, and .bun/bin.
       - ./data/npm-global:/home/openchamber/.npm-global
       - ./data/bun:/home/openchamber/.bun
       - ./data/local-bin:/home/openchamber/.local/bin
+      - ./data/local-go:/home/openchamber/.local/go
       - ./data/local-pip:/home/openchamber/.local/pip
       - ./data/cargo:/home/openchamber/.cargo
       - ./data/rustup:/home/openchamber/.rustup

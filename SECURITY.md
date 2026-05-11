@@ -24,15 +24,15 @@ Please do not publish exploit code or sensitive credentials in public issues.
 This repository uses Dependabot, CodeQL/code scanning, and dependency manifests to keep the image auditable:
 
 - Docker base images and GitHub Actions are updated through Dependabot where supported.
-- NPM-based editor and language tooling is pinned in `package.json`/`package-lock.json`.
+- NPM-based editor and language tooling is pinned in `package.json`/`package-lock.json` and installed into mounted tool paths only when managed tools are initialized.
 - Go-based tooling is pinned through `go.mod`, `go.sum`, and `tools.go`.
-- Release-managed binaries must be pinned in `tools/release-tools.json` and verified with an authoritative SHA-256 source, either upstream-published checksum assets or GitHub release asset digest metadata. The updater must not download binaries only to compute hashes.
+- Managed release binaries must be pinned in repository manifests and verified with an authoritative SHA-256 source, either upstream-published checksum assets or GitHub release asset digest metadata. Updaters and installers must not download binaries only to compute hashes.
 
 Known advisories may be dismissed only with an explicit accepted-risk note when the affected package is used strictly as local editor/LSP tooling and the vulnerable runtime path is not exposed by the image.
 
 Currently accepted examples include:
 
-- `bash-language-server` dependency advisories involving `minimatch`, accepted for LSP/editor use with `shellcheck` and `shfmt` also available.
+- `bash-language-server` dependency advisories involving `minimatch`, accepted for LSP/editor use with managed `shfmt` and project-local shell linting available where configured.
 - `svelte-language-server` dependency advisories involving Svelte SSR paths, accepted because the image does not serve a Svelte SSR application through that dependency.
 
 These accepted risks should be revisited when upstream packages provide compatible patched dependency paths.
@@ -47,6 +47,7 @@ Operators should treat the container as a developer workstation with persisted c
 - Store GitHub CLI auth, SSH keys, OpenCode state, and user-installed tools only in the intended mounted directories.
 - Avoid mounting the Docker socket or cloud credentials unless explicitly needed and understood.
 - Enable privileged Docker-in-Docker only for trusted users and workspaces.
+- Enable `OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true` only for trusted deployments with writable managed-tool mounts; it fetches and installs executable tools during startup using repository-pinned versions and checksum policy.
 
 ## Update expectations
 

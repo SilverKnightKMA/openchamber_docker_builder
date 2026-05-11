@@ -1,0 +1,34 @@
+Task 8 live container evidence - 2026-05-11
+
+Live container startup/probe status:
+- Expected prerequisite image build command:
+  docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:task-8 openchamber
+- Expected live startup command after successful build:
+  docker run --rm -p 3000:3000 openchamber:task-8
+- Expected HTTP probe after startup:
+  curl -fsS http://127.0.0.1:3000/
+
+Local blocker check run:
+  python3 - <<'PY'
+  from pathlib import Path
+  upstream = Path('../openchamber')
+  print(f'cwd={Path.cwd()}')
+  print(f'expected_upstream_context={upstream.resolve()}')
+  print(f'upstream_context_exists={upstream.is_dir()}')
+  print('build_command=docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:task-8 openchamber')
+  print('run_command=docker run --rm -p 3000:3000 openchamber:task-8')
+  if not upstream.is_dir():
+      print('blocker=expected upstream openchamber/ context is absent; full Docker build and live container startup skipped')
+  PY
+
+Output:
+  cwd=/home/openchamber/workspaces/open_chamber_docker
+  expected_upstream_context=/home/openchamber/workspaces/openchamber
+  upstream_context_exists=False
+  build_command=docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:task-8 openchamber
+  run_command=docker run --rm -p 3000:3000 openchamber:task-8
+  blocker=expected upstream openchamber/ context is absent; full Docker build and live container startup skipped
+
+Result:
+- Live container startup and curl probing were not run because the image cannot be built in this workspace without the upstream ../openchamber Docker context.
+- Local substitute checks completed in task-8-build-inspect.txt and task-8-docs-check.txt: compose config rendered successfully, Dockerfile preserved cloudflared/DinD copies, and entrypoint shell syntax passed.

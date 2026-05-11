@@ -1,0 +1,34 @@
+Task 6 PATH discovery evidence
+
+Static Dockerfile PATH/mount check:
+- Command: node --input-type=module -e '<inspect Dockerfile ENV PATH, compose mounts, package scripts>'
+- Result: exit 0.
+
+Observed runtime PATH:
+/home/openchamber/.local/bin:/home/openchamber/.npm-global/bin:/home/openchamber/.local/go/bin:/home/openchamber/.go/bin:/home/openchamber/.cargo/bin:/home/openchamber/.local/pip/bin:/home/openchamber/.bun/bin:/opt/openchamber/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+Verified managed PATH order:
+1. /home/openchamber/.local/bin
+2. /home/openchamber/.npm-global/bin
+3. /home/openchamber/.local/go/bin
+4. /home/openchamber/.go/bin
+5. /home/openchamber/.cargo/bin
+6. /home/openchamber/.local/pip/bin
+7. /home/openchamber/.bun/bin
+8. baked/core paths including /opt/openchamber/npm-global/bin and /usr/local/bin
+
+Compose/static mount check:
+- Command: docker compose -f docker-compose.example.yml config
+- Result: exit 0; rendered mounts for .npm-global, .bun, .local/bin, .local/go, .local/pip, .cargo, .rustup, .go, and .cloudflared.
+
+Temp-root command discovery:
+- Command created executable fixtures under /tmp/opencode/task-6-path-discovery and set PATH to the same managed order plus /usr/local/bin:/usr/bin:/bin.
+- Observed discovery:
+  gh -> /tmp/opencode/task-6-path-discovery/local-bin/gh
+  pyright -> /tmp/opencode/task-6-path-discovery/npm-global/bin/pyright
+  go -> /tmp/opencode/task-6-path-discovery/local-go/bin/go
+  gopls -> /tmp/opencode/task-6-path-discovery/go/bin/gopls
+  rustc -> /tmp/opencode/task-6-path-discovery/cargo/bin/rustc
+  ruff -> /tmp/opencode/task-6-path-discovery/local-pip/bin/ruff
+  bun -> /tmp/opencode/task-6-path-discovery/bun/bin/bun
+  python -> /usr/local/bin/python

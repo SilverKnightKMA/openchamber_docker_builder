@@ -1,0 +1,27 @@
+Task 7 newer warning / no-downgrade evidence - 2026-05-11
+
+Command executed for newer diagnostics:
+MANAGED_NPM_PREFIX=/tmp/opencode/task-7-fix-newer.G1OcU6/npm MANAGED_GO_ROOT=/tmp/opencode/task-7-fix-newer.G1OcU6/go-root MANAGED_GO_BINARY=/tmp/opencode/task-7-fix-newer.G1OcU6/go-root/bin/go GOBIN=/tmp/opencode/task-7-fix-newer.G1OcU6/go-bin MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-7-fix-newer.G1OcU6/bin MANAGED_CARGO_HOME=/tmp/opencode/task-7-fix-newer.G1OcU6/cargo MANAGED_RUSTUP_HOME=/tmp/opencode/task-7-fix-newer.G1OcU6/rustup npm run --silent managed-tools:compare
+
+Seeded newer/higher fixtures:
+- npm pyright 9.9.9 vs desired 1.1.409.
+- Go gopls v0.22.0 from `go version -m` vs desired v0.21.1.
+- Release yq 9.9.9 vs desired 4.53.2.
+- Rust toolchain 1.89.0 from `rustc --version` plus `rustup --version` vs desired 1.88.0.
+
+Warning output from the real compare run:
+[warn] family=npm tool=pyright desired=1.1.409 actual=9.9.9 path=/tmp/opencode/task-7-fix-newer.G1OcU6/npm/node_modules/pyright state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=npm-lockfile-prefix-tree
+[warn] family=go_tools tool=gopls desired=v0.21.1 actual=v0.22.0 path=/tmp/opencode/task-7-fix-newer.G1OcU6/go-bin/gopls state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=go-version-m
+[warn] family=release_binaries tool=yq desired=4.53.2 actual=9.9.9 path=/tmp/opencode/task-7-fix-newer.G1OcU6/bin/yq state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=release-binary-version-command checksum=sha256-mismatch
+[warn] family=rustup tool=rust-toolchain desired=1.88.0 actual=1.89.0 path=/tmp/opencode/task-7-fix-newer.G1OcU6/rustup state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=rustc-version-command+rustup-version-command
+
+No-downgrade check command:
+MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-7-fix-newer.G1OcU6/bin node scripts/managed-mounted-tools.mjs init yq
+
+No-downgrade output:
+[warn] yq 9.9.9 higher than pinned 4.53.2; skip downgrade
+yq version v9.9.9
+
+Outcome:
+- Higher/newer state was visible in compare diagnostics as `state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade`.
+- Filtered `init yq` did not install or downgrade; the seeded `yq version v9.9.9` remained after init.

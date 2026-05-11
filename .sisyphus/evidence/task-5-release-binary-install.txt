@@ -1,0 +1,18 @@
+Managed release-binary smoke
+
+Command:
+`MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-5-release-bin node scripts/managed-mounted-tools.mjs compare yq`
+
+Outcome:
+- Filtered compare path reached yq only and reported `missing -> install`.
+
+Command:
+`MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-5-release-bin node scripts/managed-mounted-tools.mjs init yq`
+
+Outcome:
+- Filtered init path installed only yq.
+- Upstream checksum asset `checksums` resolved and verified before install.
+- Install output confirmed checksum `d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b` and temp bin destination.
+
+Validation:
+`node --check scripts/managed-mounted-tools.mjs` exited 0.

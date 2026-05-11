@@ -1,0 +1,29 @@
+Task 8 real mounted managed-tool install/update evidence - 2026-05-11
+
+Temp-root aggregate managed report:
+- Command run:
+  ROOT="$(mktemp -d /tmp/opencode/task-8-report.XXXXXX)" && MANAGED_NPM_PREFIX="$ROOT/npm-global" MANAGED_GO_ROOT="$ROOT/local-go" MANAGED_GO_BINARY="$ROOT/local-go/bin/go" GOBIN="$ROOT/go/bin" MANAGED_RELEASE_BIN_DIR="$ROOT/local-bin" MANAGED_CARGO_HOME="$ROOT/cargo" MANAGED_RUSTUP_HOME="$ROOT/rustup" npm run --silent managed-tools:report
+- Observed temp root: /tmp/opencode/task-8-report.0JCdu4
+- Result: exit 0.
+- Output examples from actual run:
+  status family=npm tool=pyright desired=1.1.409 actual=missing path=/tmp/opencode/task-8-report.0JCdu4/npm-global/node_modules/pyright state=missing action=install diagnostic=npm-package-missing source=npm-lockfile-prefix-tree
+  status family=go_toolchain tool=go desired=1.26.2 actual=missing path=/tmp/opencode/task-8-report.0JCdu4/local-go/bin/go state=missing action=install diagnostic=go-toolchain-missing source=go-version
+  status family=go_tools tool=gopls desired=v0.21.1 actual=missing path=/tmp/opencode/task-8-report.0JCdu4/go/bin/gopls state=missing action=install diagnostic=go-tool-missing source=go-version-m
+  status family=release_binaries tool=yq desired=4.53.2 actual=missing path=/tmp/opencode/task-8-report.0JCdu4/local-bin/yq state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+  status family=rustup tool=rust-toolchain desired=1.88.0 actual=missing path=/tmp/opencode/task-8-report.0JCdu4/rustup state=missing action=install diagnostic=rust-toolchain-missing source=rustc-version-command
+
+Fresh filtered real mounted install/update:
+- Command run:
+  ROOT="$(mktemp -d /tmp/opencode/task-8-yq.XXXXXX)" && printf 'root=%s\n' "$ROOT" && MANAGED_RELEASE_BIN_DIR="$ROOT/local-bin" MANAGED_CARGO_HOME="$ROOT/cargo" MANAGED_RUSTUP_HOME="$ROOT/rustup" node scripts/managed-mounted-tools.mjs compare yq && MANAGED_RELEASE_BIN_DIR="$ROOT/local-bin" MANAGED_CARGO_HOME="$ROOT/cargo" MANAGED_RUSTUP_HOME="$ROOT/rustup" node scripts/managed-mounted-tools.mjs init yq && "$ROOT/local-bin/yq" --version && sha256sum "$ROOT/local-bin/yq" && MANAGED_RELEASE_BIN_DIR="$ROOT/local-bin" MANAGED_CARGO_HOME="$ROOT/cargo" MANAGED_RUSTUP_HOME="$ROOT/rustup" node scripts/managed-mounted-tools.mjs status yq
+- Output:
+  root=/tmp/opencode/task-8-yq.0mUUZC
+  [install] family=release_binaries tool=yq desired=4.53.2 actual=missing path=/tmp/opencode/task-8-yq.0mUUZC/local-bin/yq state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+  [install] yq 4.53.2 installed to /tmp/opencode/task-8-yq.0mUUZC/local-bin/yq
+  [verify] yq_linux_amd64 sha256 d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b
+  yq (https://github.com/mikefarah/yq/) version v4.53.2
+  d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b  /tmp/opencode/task-8-yq.0mUUZC/local-bin/yq
+  status family=release_binaries tool=yq desired=4.53.2 actual=4.53.2 path=/tmp/opencode/task-8-yq.0mUUZC/local-bin/yq state=equal action=skip diagnostic=matches-pinned-version source=release-binary-version-or-checksum checksum=sha256-match
+
+Result:
+- PASS. A real filtered managed mounted install/update installed yq into a fresh temp mounted bin dir using repo config and upstream checksum/version evidence.
+- The final status detected the actual binary, not mounted metadata, and reported checksum=sha256-match.

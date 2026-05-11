@@ -1,0 +1,2 @@
+VERDICT: APPROVE
+COMPLIANCE: Dockerfile COPY line at line 27 includes all 5 managed scripts referenced by package.json scripts/imports.

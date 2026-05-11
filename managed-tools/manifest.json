@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "comment": "Repo-hosted managed-tools config. Fetched from Git at init/update time. NOT baked into image.",
+  "families": {
+    "npm": {
+      "comment": "npm-managed JS/TS language servers and tools via npm ci + lockfile",
+      "installMethod": "npm ci",
+      "installPath": "~/.npm-global",
+      "statePath": "~/.npm-global/state",
+      "sourceType": "package-lock-v3",
+      "tools": [
+        { "name": "pyright",          "pkg": "pyright",                    "version": "1.1.409" },
+        { "name": "eslint",           "pkg": "eslint",                     "version": "10.3.0" },
+        { "name": "prettier",         "pkg": "prettier",                   "version": "3.8.3" },
+        { "name": "pnpm",             "pkg": "pnpm",                       "version": "10.33.4" },
+        { "name": "typescript",       "pkg": "typescript",                 "version": "6.0.3" },
+        { "name": "typescript-language-server", "pkg": "typescript-language-server", "version": "5.1.3" },
+        { "name": "yaml-language-server",      "pkg": "yaml-language-server",         "version": "1.22.0" },
+        { "name": "bash-language-server",      "pkg": "bash-language-server",         "version": "5.6.0" },
+        { "name": "dockerfile-language-server-nodejs", "pkg": "dockerfile-language-server-nodejs", "version": "0.15.0" },
+        { "name": "svelte-language-server",    "pkg": "svelte-language-server",        "version": "0.18.0" },
+        { "name": "vscode-langservers-extracted", "pkg": "vscode-langservers-extracted", "version": "4.10.0" },
+        { "name": "@biomejs/biome",            "pkg": "@biomejs/biome",               "version": "2.4.14" },
+        { "name": "@ast-grep/cli",             "pkg": "@ast-grep/cli",                "version": "0.42.1" },
+        { "name": "@vue/language-server",      "pkg": "@vue/language-server",         "version": "3.2.8" }
+      ]
+    },
+    "go_toolchain": {
+      "comment": "Go toolchain release tarball installed into mounted path",
+      "installMethod": "release-tarball",
+      "installPath": "~/.local/go",
+      "statePath": "~/.local/state/go",
+      "sourceType": "tarball",
+      "checksumSource": "upstream-sha256-file",
+      "checksumFormat": "sha256sum",
+      "checksumUrlPattern": "https://go.dev/dl/?mode=json&include=all",
+      "tools": [
+        { "name": "go", "version": "1.26.2", "os": "linux", "arch": "amd64", "assetPattern": "go{version}.linux-amd64.tar.gz" }
+      ]
+    },
+    "go_tools": {
+      "comment": "Go tools installed via go install using managed go toolchain. Version checked via go version -m only.",
+      "installMethod": "go install -mod=readonly",
+      "installPath": "~/.go/bin",
+      "statePath": "~/.go/state",
+      "sourceType": "go-mod",
+      "gobin": "~/.go/bin",
+      "tools": [
+        { "name": "gopls",  "pkg": "golang.org/x/tools/gopls",  "version": "v0.21.1" },
+        { "name": "shfmt",  "pkg": "mvdan.cc/sh/v3/cmd/shfmt",  "version": "v3.13.1" }
+      ]
+    },
+    "gh": {
+      "comment": "gh CLI as managed release binary",
+      "installMethod": "release-binary",
+      "installPath": "~/.local/bin/gh",
+      "statePath": "~/.config/gh",
+      "sourceType": "github-release-asset",
+      "checksumSource": "upstream-checksum-file",
+      "checksumFormat": "sha256sum",
+      "checksumAsset": "gh_{version}_checksums.txt",
+      "checksumPolicy": "requireUpstreamChecksum",
+      "tools": [
+        { "name": "gh", "version": "2.77.0", "repo": "cli/cli", "os": "linux", "arch": "amd64", "assetPattern": "gh_{version}_linux_amd64.tar.gz", "binPath": "gh_{version}_linux_amd64/bin/gh" }
+      ]
+    },
+    "release_binaries": {
+      "comment": "Release binary tools from GitHub releases with checksum verification",
+      "installMethod": "release-binary",
+      "installPath": "~/.local/bin",
+      "statePath": "~/.local/state/managed-release-binaries",
+      "sourceType": "github-release-asset",
+      "checksumSource": "upstream-or-github-digest",
+      "tools": [
+        {
+          "name": "yq",
+          "version": "4.53.2",
+          "repo": "mikefarah/yq",
+          "assetPattern": "yq_linux_amd64",
+          "checksumAsset": "checksums",
+          "checksumFormat": "yq-checksums",
+          "checksumPolicy": "requireUpstreamChecksum"
+        },
+        {
+          "name": "actionlint",
+          "version": "1.7.12",
+          "repo": "rhysd/actionlint",
+          "assetPattern": "actionlint_{version}_linux_amd64.tar.gz",
+          "checksumAsset": "actionlint_{version}_checksums.txt",
+          "checksumFormat": "sha256sum",
+          "checksumPolicy": "requireUpstreamChecksum"
+        },
+        {
+          "name": "marksman",
+          "version": "2026-02-08",
+          "repo": "artempyanykh/marksman",
+          "assetPattern": "marksman-linux-x64",
+          "checksumAsset": null,
+          "checksumFormat": "github-asset-digest",
+          "checksumPolicy": "allowGithubDigest",
+          "note": "No upstream checksum; uses GitHub automatic asset digest (June 2025+)"
+        },
+        {
+          "name": "hadolint",
+          "version": "2.14.0",
+          "repo": "hadolint/hadolint",
+          "assetPattern": "hadolint-linux-x86_64",
+          "checksumAsset": "hadolint-linux-x86_64.sha256",
+          "checksumFormat": "sha256sum",
+          "checksumPolicy": "requireUpstreamChecksum"
+        },
+        {
+          "name": "ruff",
+          "version": "0.15.12",
+          "repo": "astral-sh/ruff",
+          "assetPattern": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+          "checksumAsset": "ruff-x86_64-unknown-linux-gnu.tar.gz.sha256",
+          "checksumFormat": "sha256sum",
+          "checksumPolicy": "requireUpstreamChecksum"
+        },
+        {
+          "name": "scc",
+          "version": "3.7.0",
+          "repo": "boyter/scc",
+          "assetPattern": "scc_Linux_x86_64.tar.gz",
+          "checksumAsset": "checksums.txt",
+          "checksumFormat": "sha256sum",
+          "checksumPolicy": "requireUpstreamChecksum"
+        }
+      ]
+    },
+    "llvm_tools": {
+      "comment": "LLVM/clang tooling - clangd, clang-format as managed releases",
+      "installMethod": "release-binary",
+      "installPath": "~/.local/bin",
+      "statePath": "~/.local/state/llvm-tools",
+      "sourceType": "github-release-asset",
+      "checksumSource": "upstream-sig-jsonl",
+      "checksumFormat": "jsonl-sha256",
+      "checksumPolicy": "requireUpstreamChecksum",
+      "tools": [
+        {
+          "name": "clangd",
+          "version": "20.1.3",
+          "repo": "clangd/clangd",
+          "assetPattern": "clangd-linux-{version}.zip",
+          "checksumAsset": null,
+          "checksumFormat": "github-asset-digest",
+          "checksumPolicy": "allowGithubDigest",
+          "note": "No upstream checksum file; uses GitHub automatic asset digest"
+        },
+        {
+          "name": "clang-format",
+          "version": "20.1.3",
+          "repo": "llvm/llvm-project",
+          "assetPattern": "clang+llvm-{version}-x86_64-linux-gnu-ubuntu-24.04.tar.xz",
+          "checksumAsset": "llvm-project-{version}.sha256",
+          "checksumFormat": "sha256sum",
+          "checksumPolicy": "requireUpstreamChecksum",
+          "note": "Uses LLVM's sha256 sum file plus .sig for signature verification"
+        }
+      ]
+    },
+    "cmake": {
+      "comment": "CMake as managed release binary",
+      "installMethod": "release-binary",
+      "installPath": "~/.local/bin",
+      "statePath": "~/.local/state/cmake",
+      "sourceType": "github-release-asset",
+      "checksumSource": "upstream-sha256-file",
+      "checksumFormat": "sha256sum",
+      "checksumPolicy": "requireUpstreamChecksum",
+      "tools": [
+        {
+          "name": "cmake",
+          "version": "3.31.6",
+          "repo": "Kitware/CMake",
+          "assetPattern": "cmake-{version}-linux-x86_64.tar.gz",
+          "checksumAsset": "cmake-{version}-SHA-256.txt",
+          "checksumPolicy": "requireUpstreamChecksum"
+        }
+      ]
+    },
+    "protobuf": {
+      "comment": "protobuf-compiler as managed release binary",
+      "installMethod": "release-binary",
+      "installPath": "~/.local/bin",
+      "statePath": "~/.local/state/protobuf",
+      "sourceType": "github-release-asset",
+      "checksumSource": "github-digest-only",
+      "checksumFormat": "github-asset-digest",
+      "checksumPolicy": "allowGithubDigest",
+      "tools": [
+        {
+          "name": "protobuf-compiler",
+          "pkg": "protobuf-compiler",
+          "version": "29.4.0",
+          "repo": "protocolbuffers/protobuf",
+          "assetPattern": "protoc-{version}-linux-x86_64.zip",
+          "checksumAsset": null,
+          "checksumPolicy": "allowGithubDigest",
+          "note": "No upstream checksums exist (issue #16165 closed not_planned). Relies on GitHub automatic asset digest."
+        }
+      ]
+    },
+    "rustup": {
+      "comment": "Rust toolchain managed via rustup",
+      "installMethod": "rustup",
+      "installPath": "~/.rustup",
+      "cargoHome": "~/.cargo",
+      "statePath": "~/.rustup/state",
+      "sourceType": "rustup-toolchain",
+      "tools": [
+        {
+          "name": "rustc",
+          "version": "1.88.0",
+          "channel": "stable",
+          "profile": "default"
+        },
+        {
+          "name": "cargo",
+          "version": "1.88.0",
+          "channel": "stable",
+          "profile": "default"
+        }
+      ]
+    }
+  }
+}

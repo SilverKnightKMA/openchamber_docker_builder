@@ -28,11 +28,11 @@ Key behavior:
 - Build uses the full upstream source tree as context to avoid Bun workspace/frozen-lockfile failures caused by partial manifest copying.
 - The image runs `bun run build:web` during build.
 - Runtime behavior preserves the upstream `scripts/docker-entrypoint.sh` entrypoint and web CLI layout.
-- Core remote editor / AI-agent tools are baked into the image, while user-installed tools are stored under persisted home directories.
+- Core runtime tooling is baked into the image, while managed developer tools and custom user-installed tools are stored under persisted home directories.
 - Optional `oh-my-opencode` runtime install is disabled by default; `OH_MY_OPENCODE=true` installs the standard package, `OH_MY_OPENCODE_SLIM=true` installs `oh-my-opencode-slim`, and setting both variables to `true` fails fast with a clear entrypoint error.
-- Baked npm tools are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update them.
+- Managed npm tool versions are declared in this repository's `package.json`/`package-lock.json`, allowing Dependabot to update the pinned mounted-tool set.
 - `cloudflared` intentionally tracks `cloudflare/cloudflared:latest` through a pinned digest that is refreshed by Dependabot pull request rather than at container runtime.
-- Corepack is not enabled by default. The baked `pnpm` binary is a fallback; project-local package-manager commands remain preferred inside workspaces.
+- Corepack is not enabled by default. Project-local package-manager commands remain preferred inside workspaces.
 
 ## Docker Compose example
 
@@ -73,7 +73,7 @@ The optional daemon config is not required for normal operation. Mount it only i
 Before exposing the service, review `SECURITY.md`. After starting the container, use this operational checklist:
 
 - Ensure the persisted `./data` directory is writable by the container user (`UID 1000`): `sudo chown -R 1000:1000 ./data`.
-- Authenticate GitHub CLI inside the container with `gh auth login`, then verify with `gh auth status`.
+- After initializing managed mounted tools if you need GitHub CLI, authenticate with `gh auth login`, then verify with `gh auth status`.
 - Configure Git identity inside the container with `git config --global user.name` and `git config --global user.email`.
 - Verify SSH access if using SSH Git remotes: `ssh -T git@github.com`.
 - Confirm the UI responds on port `3000` before putting it behind external access.
@@ -92,32 +92,58 @@ The compose sample mounts these important paths:
 - OpenCode state: `.local/share/opencode`, `.local/state/opencode`
 - Developer identity and auth: `.ssh`, `.config/git`, `.config/gh`, `.cloudflared`
 - Workspaces: `workspaces`
-- Persisted user tooling: `.npm-global`, `.bun`, `.local/bin`, `.local/pip`, `.cargo`, `.rustup`, `.go`
+- Persisted managed/custom tooling: `.local/bin`, `.npm-global`, `.local/go`, `.go`, `.cargo`, `.rustup`, `.local/pip`, `.bun`
 - Neovim state: `.config/nvim`, `.local/share/nvim`, `.local/state/nvim`
 
 The runtime image exposes `3000` and includes PATH entries for persisted tool locations:
 
 - `~/.local/bin`
 - `~/.npm-global/bin`
-- `~/.bun/bin`
-- `~/.cargo/bin`
+- `~/.local/go/bin`
 - `~/.go/bin`
+- `~/.cargo/bin`
 - `~/.local/pip/bin`
+- `~/.bun/bin`
+- baked/core paths, including `/opt/openchamber/npm-global/bin` and `/usr/local/bin`
 
 ## Runtime contents
 
-The image includes upstream runtime artifacts plus common editor/remote-agent dependencies such as Git, Node/NPM, Python tooling, Go, Rust/Cargo, build tools, LSP helpers, shell utilities, `opencode-ai`, and pinned `cloudflared`.
+The image uses a three-tier tooling model:
 
-Source images for Bun, Go, `uv`, `node`, and `cloudflared` are pinned by tag plus digest. Bun, Go, and `node` use versioned tags, `uv` uses the pinned Astral `uv` image tag, and `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through Dependabot PRs.
+- Baked core: upstream OpenChamber runtime artifacts, Bun runtime, Node/npm bootstrap, `opencode-ai`, `cloudflared`, Docker/DinD binaries and CLI plugins, Python, Git, build essentials, and approved system/network shell utilities.
+- Managed mounted tools: repo-pinned developer tools installed into persisted mounts on demand, including npm language tooling, Go, Go tools, GitHub CLI, release binaries, LLVM/CMake/protobuf tools, and Rust/Rustup.
+- Custom mounted tools: operator- or user-installed tools under the same persisted home tool directories, such as `npm install -g`, `go install`, `cargo install`, or `pip install --user` output.
 
-Go is copied from an intentionally pinned official Go image instead of Debian's `golang-go` package so the runtime `go` command is compatible with this repository's Go tool manifest. `uv` is copied from the official Astral image instead of being installed through system Python. `node` and `npm` are copied from the pinned official Node image instead of Debian packages, so Docker Dependabot can track and update them through the Docker image digest. The `node-runtime` stage is intentionally placed first (before all other `FROM` statements) so Dependabot's Docker ecosystem scanner can detect and update it via the standard Docker version pinning workflow.
+Source images for Bun, `node`, `cloudflared`, and Docker-in-Docker are pinned by tag plus digest. Bun, `node`, and Docker-in-Docker use versioned tags; `cloudflared` intentionally uses `latest` plus a digest so updates are reviewed through Dependabot PRs. The `node-runtime` stage is intentionally placed first so Dependabot's Docker ecosystem scanner can detect and update it through the standard Docker version pinning workflow.
 
+Go, Rust/Cargo, GitHub CLI, Neovim, tmux, and release-managed standalone binaries are not baked into the final image. Go is installed into the mounted `~/.local/go` path by the managed Go toolchain command when requested. `node` and `npm` are copied from the pinned official Node image instead of Debian packages, so Docker Dependabot can track and update them through the Docker image digest.
 
-The exact baked npm tool list and versions live in `package.json`/`package-lock.json` so Dependabot can update them via normal dependency PRs.
+The Docker build copies the managed-tool manifests and scripts into `/opt/openchamber/managed-tools`, but it does not install the managed tool payloads during image build. The baked npm install is pruned to `opencode-ai` before `npm ci`, so npm LSP/dev tools from `package.json` are managed-mounted tools rather than baked global tools.
 
-Release-managed standalone binaries live in `tools/release-tools.json` and are installed only after verifying an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. This includes `yq`, `actionlint`, `marksman`, `hadolint`, `ruff`, and `scc`. `scc` is the baked code statistics counter; `tokei` remains omitted because its current GitHub release metadata does not provide an installable Linux binary with a matching authoritative checksum path.
+### Managed mounted tools
 
-`marksman` is baked into `/usr/local/bin`, but OpenCode does not currently register Markdown LSP support from installed binaries alone. After deploying or recreating a persisted OpenCode config volume, ensure the mounted `~/.config/opencode/opencode.json` contains an explicit custom LSP entry:
+Managed tool versions and policies live in `managed-tools/manifest.json`, `managed-tools/policy.json`, `package.json`, `package-lock.json`, `go.mod`, `go.sum`, and `tools.go`. Release-binary installs verify an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. The installer uses actual package or binary version detection and checksum evidence; mounted metadata files are never trusted as the source of truth.
+
+Run these commands inside the container to inspect or update managed mounted tools:
+
+```bash
+npm run --prefix /opt/openchamber/managed-tools managed-tools:status
+npm run --prefix /opt/openchamber/managed-tools managed-tools:report
+npm run --prefix /opt/openchamber/managed-tools managed-tools:compare
+npm run --prefix /opt/openchamber/managed-tools managed-tools:init
+```
+
+There is no separate `update` command. Rerun `managed-tools:init` to install missing tools or upgrade lower installed versions to the pinned versions. The compare policy is: missing installs, equal skips, lower upgrades, higher warns and skips without downgrade, and unparseable warns and skips. For smaller updates, use the per-family scripts or pass a release-tool filter, such as:
+
+```bash
+npm run --prefix /opt/openchamber/managed-tools managed-tools:npm:init
+npm run --prefix /opt/openchamber/managed-tools managed-tools:go:init
+npm run --prefix /opt/openchamber/managed-tools managed-tools:mounted:init -- yq
+```
+
+Startup autoinstall is disabled by default. Set `OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL=true` only when the mounted tool directories are writable and the deployment can make trusted outbound requests during startup. With the flag enabled, the entrypoint runs `npm run --prefix /opt/openchamber/managed-tools managed-tools:init` before delegating to upstream OpenChamber.
+
+`marksman` is a managed mounted release binary installed into `~/.local/bin` after managed mounted tools are initialized. OpenCode does not currently register Markdown LSP support from installed binaries alone. After deploying or recreating a persisted OpenCode config volume, ensure the mounted `~/.config/opencode/opencode.json` contains an explicit custom LSP entry:
 
 ```json
 {
@@ -130,7 +156,7 @@ Release-managed standalone binaries live in `tools/release-tools.json` and are i
 }
 ```
 
-`docker-langserver` is also baked into `/usr/local/bin`. The builder Dockerfile is intentionally named `Dockerfile.dockerfile` so current oh-my-opencode LSP tools can match it via the `.dockerfile` extension. Keep the normal Dockerfile LSP entry in the mounted config and do not add an empty-string extension workaround; that can route every extensionless file to Dockerfile LSP.
+`docker-langserver` is a managed mounted npm binary exposed from `~/.npm-global/bin` after managed npm tools are initialized. The builder Dockerfile is intentionally named `Dockerfile.dockerfile` so current oh-my-opencode LSP tools can match it via the `.dockerfile` extension. Keep the normal Dockerfile LSP entry in the mounted config and do not add an empty-string extension workaround; that can route every extensionless file to Dockerfile LSP.
 
 ```json
 {
@@ -147,7 +173,7 @@ Do not bake this file directly into `/home/openchamber/.config/opencode`; compos
 
 Accepted-risk notes for bundled tool dependency advisories live in `SECURITY.md` rather than this operational README.
 
-`tools.go` is a Go tool manifest guarded by `//go:build tools`. It intentionally imports command packages such as `golang.org/x/tools/gopls`, so normal `go list ./...` matches no packages and `go list -tags=tools` can report command-package import errors. Validate the manifest with `go list -tags=tools -e -json .` or by running the Dockerfile `go install` steps, not by treating `tools.go` as application code.
+`tools.go` is a Go tool manifest guarded by `//go:build tools`. It intentionally imports command packages such as `golang.org/x/tools/gopls`, so normal `go list ./...` matches no packages and `go list -tags=tools` can report command-package import errors. Validate the manifest with `go list -tags=tools -e -json .` when Go is available, or through the managed Go status/init commands, not by treating `tools.go` as application code.
 
 ## Persisting auth and user-installed tools
 
@@ -168,9 +194,9 @@ go install example.com/tool@<version>         # -> ~/.go/bin
 cargo install <tool> --version <version>      # -> ~/.cargo/bin
 ```
 
-The image installs core tools globally outside mounted paths so a fresh empty `~/.npm-global` volume does not hide required runtime tools like `opencode-ai`.
+The image installs baked core tools outside mounted paths so a fresh empty `~/.npm-global` volume does not hide required runtime tools like `opencode-ai`.
 
-Baked tools in `/usr/local/bin` and `/opt/openchamber/npm-global/bin` appear before persisted user install directories in `PATH`. For project work, prefer project-local commands such as `bun run`, `npm exec`, `npx`, or `pnpm exec`; those commands can resolve workspace-local `node_modules/.bin` entries and avoid conflicts with fallback global tools such as `eslint`, `prettier`, `biome`, or `pnpm`.
+Managed mounted and custom tool directories appear before baked core paths in `PATH`: `~/.local/bin`, `~/.npm-global/bin`, `~/.local/go/bin`, `~/.go/bin`, `~/.cargo/bin`, `~/.local/pip/bin`, and `~/.bun/bin`, followed by `/opt/openchamber/npm-global/bin` and system paths such as `/usr/local/bin`. For project work, prefer project-local commands such as `bun run`, `npm exec`, `npx`, or `pnpm exec`; those commands can resolve workspace-local `node_modules/.bin` entries and avoid conflicts with managed or custom global tools such as `eslint`, `prettier`, `biome`, or `pnpm`.
 
 Corepack is not enabled in this image. If a workspace requires Corepack-managed shims, enable them explicitly in the persisted user environment or the project workflow after confirming compatibility with that workspace's `packageManager` metadata.
 

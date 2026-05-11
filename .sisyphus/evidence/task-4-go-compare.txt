@@ -1,0 +1,37 @@
+Task 4 Go compare evidence - 2026-05-11
+
+Real binary metadata read:
+/tmp/opencode/task-4-go-root/bin/go version -m /tmp/opencode/task-4-go-bin/gopls
+Observed mod line: mod golang.org/x/tools/gopls v0.21.1 ...
+
+/tmp/opencode/task-4-go-root/bin/go version -m /tmp/opencode/task-4-go-bin/shfmt
+Observed mod line: mod mvdan.cc/sh/v3 v3.13.1 ...
+
+Real installed compare:
+go	1.26.2	1.26.2	equal	skip
+gopls	v0.21.1	v0.21.1	equal	skip
+shfmt	v3.13.1	v3.13.1	equal	skip
+
+Missing compare:
+go	missing	1.26.2	missing	install
+gopls	missing	v0.21.1	missing	install
+shfmt	missing	v3.13.1	missing	install
+
+Fixture equal compare:
+go	1.26.2	1.26.2	equal	skip
+gopls	v0.21.1	v0.21.1	equal	skip
+shfmt	v3.13.1	v3.13.1	equal	skip
+
+Fixture lower compare:
+go	1.26.2	1.26.2	equal	skip
+gopls	v0.20.0	v0.21.1	lower	upgrade
+shfmt	v3.12.0	v3.13.1	lower	upgrade
+
+Fixture higher compare:
+go	1.26.2	1.26.2	equal	skip
+gopls	v0.22.0	v0.21.1	higher	warn_and_skip
+shfmt	v3.14.0	v3.13.1	higher	warn_and_skip
+
+Detection source:
+- Tool versions came from `go version -m <binary>` only.
+- `shfmt` binary reports module `mvdan.cc/sh/v3`; script maps command package `mvdan.cc/sh/v3/cmd/shfmt` to parent module metadata.

@@ -1,0 +1,110 @@
+Task 2 Deleted/Moved Tools Check
+Date: 2026-05-11
+
+Scope
+- Refactored Dockerfile.dockerfile only.
+- Full image build/runtime absence checks were skipped because the expected upstream build context ../openchamber is absent in this workspace.
+- Task 10 should run this from a parent directory containing both openchamber/ and open_chamber_docker/:
+  docker build -f open_chamber_docker/Dockerfile.dockerfile --build-context toolchain=open_chamber_docker -t openchamber:managed-refactor openchamber
+
+Static deleted/moved tool absence check
+Command:
+  python3 - <<'PY'
+  from pathlib import Path
+  text = Path('Dockerfile.dockerfile').read_text()
+  checks = {
+      'FROM golang': 'FROM golang' in text,
+      'go-runtime stage': 'AS go-runtime' in text,
+      'install-release-tools': 'install-release-tools' in text,
+      'release-tools manifest copy': 'release-tools.json' in text,
+      'github cli apt repo': 'cli.github.com' in text,
+      'apt gh': ' gh \\' in text,
+      'apt neovim': ' neovim \\' in text,
+      'apt vim': ' vim \\' in text,
+      'apt tmux': ' tmux \\' in text,
+      'apt rustc': ' rustc \\' in text,
+      'apt cargo': ' cargo \\' in text,
+      'go install': 'go install' in text,
+      'uv stage/copy': 'uv-bin' in text or '/uvx' in text,
+      'clangd': ' clangd \\' in text,
+      'clang-format': ' clang-format \\' in text,
+      'cmake apt': ' cmake \\' in text,
+      'protobuf apt': ' protobuf-compiler \\' in text,
+  }
+  for name, present in checks.items():
+      print(f'{name}: {"present" if present else "absent"}')
+  PY
+Output:
+  FROM golang: absent
+  go-runtime stage: absent
+  install-release-tools: absent
+  release-tools manifest copy: absent
+  github cli apt repo: absent
+  apt gh: absent
+  apt neovim: absent
+  apt vim: absent
+  apt tmux: absent
+  apt rustc: absent
+  apt cargo: absent
+  go install: absent
+  uv stage/copy: absent
+  clangd: absent
+  clang-format: absent
+  cmake apt: absent
+  protobuf apt: absent
+
+Apt package set check
+Command:
+  python3 - <<'PY'
+  from pathlib import Path
+  text = Path('Dockerfile.dockerfile').read_text().splitlines()
+  packages = []
+  in_block = False
+  for line in text:
+      stripped = line.strip()
+      if stripped.startswith('RUN apt-get update && apt-get install'):
+          in_block = True
+          continue
+      if in_block:
+          if stripped.startswith('&& '):
+              break
+          if stripped.endswith('\\'):
+              packages.append(stripped[:-1].strip())
+          elif stripped:
+              packages.append(stripped)
+  approved = 'bash ca-certificates curl git openssh-client python3 python3-pip python3-venv tar unzip xz-utils file jq less procps psmisc iproute2 iptables kmod netcat-openbsd lsof rsync sudo dnsutils iputils-ping nano git-lfs build-essential'.split()
+  print('apt packages:', ' '.join(packages))
+  print('missing approved:', ' '.join(sorted(set(approved) - set(packages))) or 'none')
+  print('extra packages:', ' '.join(sorted(set(packages) - set(approved))) or 'none')
+  PY
+Output:
+  apt packages: bash build-essential ca-certificates curl dnsutils file git git-lfs iproute2 iputils-ping iptables jq kmod less lsof nano netcat-openbsd openssh-client procps psmisc python3 python3-pip python3-venv rsync sudo tar unzip xz-utils
+  missing approved: none
+  extra packages: none
+
+Opencode-only npm prune/install check
+Command:
+  node script copied package.json/package-lock.json to a temp dir, applied the Dockerfile opencode-only pruning logic, ran npm ci --omit=dev --prefix TEMP_DIR, and checked installed modules.
+Output:
+  installed=opencode-ai,opencode-linux-x64,opencode-linux-x64-baseline,opencode-linux-x64-baseline-musl,opencode-linux-x64-musl
+  opencode-bin=true
+  typescript-installed=false
+  pyright-installed=false
+
+Release-tool manifest validation
+Command:
+  npm run validate:release-tools
+Output:
+  release tool manifest valid: 6 tools
+
+Dockerfile/static validation
+Command:
+  docker buildx build --check -f Dockerfile.dockerfile --build-context toolchain=. .
+Output:
+  Check complete, no warnings found.
+
+LSP diagnostics
+Command:
+  lsp_diagnostics Dockerfile.dockerfile severity=all
+Output:
+  No diagnostics found.

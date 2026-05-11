@@ -1,0 +1,8 @@
+Missing case: [install] pyright missing -> install 1.1.409
+Lower case: [upgrade] pyright 1.1.0 -> 1.1.409
+Higher case: [warn] pyright 9.9.9 higher than pinned 1.1.409; skip downgrade
+Equal case: status output showed pyright equal wanted=1.1.409 installed=1.1.409
+Deterministic higher case: /tmp/opencode/managed-npm-high-gDT569 with pyright 9.9.9 produced warning and skipped downgrade
+Missing-prefix regression fix: HOME=/tmp/opencode/... MANAGED_NPM_PREFIX=/tmp/opencode/npm-verify-XXXXXX/npm-global now prints [install] lines for every npm-managed tool instead of crashing.
+Fresh missing-prefix run output starts with: [install] pyright missing -> install 1.1.409
+Existing successful smoke still passes: init/status under /tmp/opencode/npm-status-CDyB0K reported all tools equal.

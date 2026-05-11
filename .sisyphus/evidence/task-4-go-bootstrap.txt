@@ -1,0 +1,21 @@
+Task 4 Go bootstrap evidence - 2026-05-11
+
+Command:
+MANAGED_GO_ROOT=/tmp/opencode/task-4-go-root GOBIN=/tmp/opencode/task-4-go-bin node scripts/managed-go-tools.mjs toolchain
+
+Outcome:
+[install] go 1.26.2 installed to /tmp/opencode/task-4-go-root
+[verify] go1.26.2.linux-amd64.tar.gz sha256 990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282
+
+Notes:
+- Script fetched authoritative Go metadata from https://go.dev/dl/?mode=json&include=all.
+- Script matched manifest asset go1.26.2.linux-amd64.tar.gz and used metadata sha256 before extraction.
+- Installed toolchain lived under temp mounted path override /tmp/opencode/task-4-go-root.
+
+Command:
+MANAGED_GO_ROOT=/tmp/opencode/task-4-go-root GOBIN=/tmp/opencode/task-4-go-bin PATH=/tmp/opencode/task-4-go-root/bin:$PATH node scripts/managed-go-tools.mjs compare
+
+Outcome:
+go	1.26.2	1.26.2	equal	skip
+gopls	v0.21.1	v0.21.1	equal	skip
+shfmt	v3.13.1	v3.13.1	equal	skip

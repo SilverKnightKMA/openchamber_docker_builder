@@ -1,0 +1,55 @@
+# Task 1: Compare Policy Evidence
+# Generated: 2026-05-11
+
+## Canonical Compare Rules
+
+| Installed vs Pinned | Behavior | Action |
+|---------------------|----------|--------|
+| missing | install | Install pinned version |
+| equal | skip | No-op, skip |
+| lower | upgrade | Upgrade to pinned version |
+| higher | warn_and_skip | Warn and skip (do not downgrade) |
+| unparseable | warn_and_skip | Warn and skip unless installer explicitly supports checksum-only |
+
+## Checksum Policies
+
+| Policy | Description | Used By |
+|--------|-------------|---------|
+| requireUpstreamChecksum | Must use authoritative upstream checksum file (checksums.txt, SHA256). GitHub digest NOT acceptable. | gh, yq (if upstream checksum exists), actionlint, hadolint, ruff, scc, clang-format, cmake |
+| allowGithubDigest | No upstream checksum exists. GitHub automatic asset digest (June 2025+) is acceptable fallback. | marksman, clangd, protobuf-compiler |
+| upstreamOrGithubDigest | Prefer upstream checksum; fall back to GitHub digest if no upstream checksum. | release_binaries family |
+| upstreamSha256File | Upstream publishes dedicated SHA256 file. | go_toolchain, cmake |
+
+## Version Normalization Strategy
+
+| Family | Normalization |
+|--------|---------------|
+| npm | semver-strip-prefix (strip 'v' prefix) |
+| go | semver-strip-prefix (strip 'v' prefix) |
+| go_toolchain | semver (keep full, e.g. 1.26.2) |
+| gh | semver-strip-prefix |
+| release_binaries | semver-strip-prefix |
+| rustup | semver (channel-based stable) |
+| llvm | numeric (e.g. 20.1.3) |
+
+## Detection Strategy (NOT metadata-based)
+
+| Tool/Family | Detection Method |
+|-------------|-----------------|
+| npm | npm list --depth=0 --json or npm --version |
+| go_toolchain | go version output parsing |
+| go_tools | go version -m <binary> |
+| gh | gh --version |
+| release_binaries | <binary> --version or <binary> version |
+| rustup | rustup --version && rustc --version |
+| clangd | clangd --version |
+| clang-format | clang-format --version |
+| cmake | cmake --version |
+| protobuf-compiler | protoc --version |
+
+## Policy Source Files
+- managed-tools/manifest.json - tool definitions with versions and paths
+- managed-tools/policy.json - compare rules, checksum policies, normalization, detection
+
+## Conclusion
+All compare behaviors are explicitly defined. No ambiguous behavior remains.

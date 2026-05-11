@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "comment": "Compare and install policy for repo-hosted managed tools. Fetched from Git at init/update time.",
+  "policy": {
+    "compare": {
+      "missing": "install",
+      "equal": "skip",
+      "lower": "upgrade",
+      "higher": "warn_and_skip",
+      "unparseable": "warn_and_skip"
+    },
+    "checksumPolicy": {
+      "requireUpstreamChecksum": {
+        "description": "Must use authoritative upstream checksum file (e.g. checksums.txt, SHA256 file). GitHub asset digest is NOT acceptable.",
+        "allowDownloadAndHash": false
+      },
+      "allowGithubDigest": {
+        "description": "No upstream checksum file exists. GitHub automatic asset digest (June 2025+) is the acceptable fallback.",
+        "allowDownloadAndHash": false,
+        "note": "GitHub computes SHA256 for every release asset automatically."
+      },
+      "upstreamOrGithubDigest": {
+        "description": "Prefer upstream checksum; fall back to GitHub automatic asset digest if no upstream checksum exists.",
+        "allowDownloadAndHash": false
+      }
+    },
+    "versionNormalization": {
+      "npm": "semver-strip-prefix",
+      "go": "semver-strip-prefix",
+      "go_toolchain": "semver",
+      "gh": "semver-strip-prefix",
+      "release_binaries": "semver-strip-prefix",
+      "rustup": "semver",
+      "llvm": "numeric"
+    },
+    "detection": {
+      "description": "Actual installed versions MUST be detected from binaries/tool managers, never from mounted metadata files.",
+      "npm": "npm list --depth=0 --json or npm --version",
+      "go_toolchain": "go version output parsing",
+      "go_tools": "go version -m <binary>",
+      "gh": "gh --version",
+      "release_binaries": "<binary> --version or <binary> version",
+      "rustup": "rustup --version && rustc --version",
+      "clangd": "clangd --version",
+      "clang_format": "clang-format --version",
+      "cmake": "cmake --version",
+      "protobuf_compiler": "protoc --version"
+    }
+  }
+}

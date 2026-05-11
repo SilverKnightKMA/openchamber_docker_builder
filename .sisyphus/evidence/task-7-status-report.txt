@@ -1,0 +1,33 @@
+Task 7 status/report evidence - 2026-05-11
+
+Command executed:
+MANAGED_NPM_PREFIX=/tmp/opencode/task-7-fix-status.bix1Gk/npm MANAGED_GO_ROOT=/tmp/opencode/task-7-fix-status.bix1Gk/go-root MANAGED_GO_BINARY=/tmp/opencode/task-7-fix-status.bix1Gk/go-root/bin/go GOBIN=/tmp/opencode/task-7-fix-status.bix1Gk/go-bin MANAGED_RELEASE_BIN_DIR=/tmp/opencode/task-7-fix-status.bix1Gk/bin MANAGED_CARGO_HOME=/tmp/opencode/task-7-fix-status.bix1Gk/cargo MANAGED_RUSTUP_HOME=/tmp/opencode/task-7-fix-status.bix1Gk/rustup npm run --silent managed-tools:report
+
+Temp fixture setup:
+- npm prefix had pyright 9.9.9 (higher), eslint 10.3.0 (equal), and other packages missing.
+- Go fixture binary reported go 1.26.2; go version -m reported gopls v0.20.0 and shfmt v3.13.1.
+- Release bin dir had yq 9.9.9 and all other release-family binaries missing.
+- Rust fixture had rustc 1.87.0 and rustup --version available.
+
+Output excerpts from the real run, preserving required desired/actual/path/state/action fields:
+status family=npm tool=pyright desired=1.1.409 actual=9.9.9 path=/tmp/opencode/task-7-fix-status.bix1Gk/npm/node_modules/pyright state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=npm-lockfile-prefix-tree
+[warn] family=npm tool=pyright desired=1.1.409 actual=9.9.9 path=/tmp/opencode/task-7-fix-status.bix1Gk/npm/node_modules/pyright state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=npm-lockfile-prefix-tree
+status family=npm tool=eslint desired=10.3.0 actual=10.3.0 path=/tmp/opencode/task-7-fix-status.bix1Gk/npm/node_modules/eslint state=equal action=skip diagnostic=matches-pinned-version source=npm-lockfile-prefix-tree
+status family=npm tool=prettier desired=3.8.3 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/npm/node_modules/prettier state=missing action=install diagnostic=npm-package-missing source=npm-lockfile-prefix-tree
+status family=go_toolchain tool=go desired=1.26.2 actual=1.26.2 path=/tmp/opencode/task-7-fix-status.bix1Gk/go-root/bin/go state=equal action=skip diagnostic=matches-pinned-version source=go-version
+status family=go_tools tool=gopls desired=v0.21.1 actual=v0.20.0 path=/tmp/opencode/task-7-fix-status.bix1Gk/go-bin/gopls state=lower action=upgrade diagnostic=older-than-pinned-upgrade source=go-version-m
+status family=go_tools tool=shfmt desired=v3.13.1 actual=v3.13.1 path=/tmp/opencode/task-7-fix-status.bix1Gk/go-bin/shfmt state=equal action=skip diagnostic=matches-pinned-version source=go-version-m
+status family=gh tool=gh desired=2.77.0 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/gh state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+status family=release_binaries tool=yq desired=4.53.2 actual=9.9.9 path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/yq state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=release-binary-version-command checksum=sha256-mismatch
+[warn] family=release_binaries tool=yq desired=4.53.2 actual=9.9.9 path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/yq state=higher action=warn_and_skip diagnostic=newer-than-pinned-skip-downgrade source=release-binary-version-command checksum=sha256-mismatch
+status family=release_binaries tool=actionlint desired=1.7.12 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/actionlint state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+status family=llvm_tools tool=clangd desired=20.1.3 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/clangd state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+status family=cmake tool=cmake desired=3.31.6 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/cmake state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+status family=protobuf tool=protobuf-compiler desired=29.4.0 actual=missing path=/tmp/opencode/task-7-fix-status.bix1Gk/bin/protoc state=missing action=install diagnostic=release-binary-missing source=release-binary-version-command
+status family=rustup tool=rustc desired=1.88.0 actual=1.87.0 path=/tmp/opencode/task-7-fix-status.bix1Gk/cargo/bin/rustc state=lower action=upgrade diagnostic=older-than-pinned-upgrade source=rustc-version-command+rustup-version-command
+status family=rustup tool=cargo desired=1.88.0 actual=1.87.0 path=/tmp/opencode/task-7-fix-status.bix1Gk/cargo/bin/cargo state=lower action=upgrade diagnostic=older-than-pinned-upgrade source=rustc-version-command+rustup-version-command
+
+Outcome:
+- The real `managed-tools:report` command covered npm, Go toolchain, Go tools, gh, release_binaries, llvm_tools, cmake, protobuf, and rustup families.
+- Each shown status row includes desired, actual, path, state, and action fields.
+- Go tool rows use `source=go-version-m`, confirming `go version -m` detection.
