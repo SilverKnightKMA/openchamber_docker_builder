@@ -142,22 +142,24 @@
         {
           "name": "clangd",
           "version": "20.1.3",
-          "repo": "clangd/clangd",
-          "assetPattern": "clangd-linux-{version}.zip",
-          "checksumAsset": null,
-          "checksumFormat": "github-asset-digest",
-          "checksumPolicy": "allowGithubDigest",
-          "note": "No upstream checksum file; uses GitHub automatic asset digest"
+          "repo": "llvm/llvm-project",
+          "tagPattern": "llvmorg-{version}",
+          "assetPattern": "LLVM-{version}-Linux-X64.tar.xz",
+          "checksumAsset": "LLVM-{version}-Linux-X64.tar.xz.jsonl",
+          "checksumFormat": "jsonl-sha256",
+          "checksumPolicy": "requireUpstreamChecksum",
+          "note": "Uses LLVM binary release and Sigstore JSONL provenance checksum for the Linux x64 archive"
         },
         {
           "name": "clang-format",
           "version": "20.1.3",
           "repo": "llvm/llvm-project",
-          "assetPattern": "clang+llvm-{version}-x86_64-linux-gnu-ubuntu-24.04.tar.xz",
-          "checksumAsset": "llvm-project-{version}.sha256",
-          "checksumFormat": "sha256sum",
+          "tagPattern": "llvmorg-{version}",
+          "assetPattern": "LLVM-{version}-Linux-X64.tar.xz",
+          "checksumAsset": "LLVM-{version}-Linux-X64.tar.xz.jsonl",
+          "checksumFormat": "jsonl-sha256",
           "checksumPolicy": "requireUpstreamChecksum",
-          "note": "Uses LLVM's sha256 sum file plus .sig for signature verification"
+          "note": "Uses LLVM binary release and Sigstore JSONL provenance checksum for the Linux x64 archive"
         }
       ]
     },
@@ -187,19 +189,24 @@
       "installPath": "~/.local/bin",
       "statePath": "~/.local/state/protobuf",
       "sourceType": "github-release-asset",
-      "checksumSource": "github-digest-only",
-      "checksumFormat": "github-asset-digest",
-      "checksumPolicy": "allowGithubDigest",
+      "checksumSource": "upstream-maven-provenance-jsonl",
+      "checksumFormat": "jsonl-sha256",
+      "checksumPolicy": "requireUpstreamChecksum",
       "tools": [
         {
           "name": "protobuf-compiler",
           "pkg": "protobuf-compiler",
           "version": "29.4.0",
+          "assetVersion": "29.4",
+          "checksumVersion": "4.29.4",
           "repo": "protocolbuffers/protobuf",
-          "assetPattern": "protoc-{version}-linux-x86_64.zip",
+          "tagPattern": "v{assetVersion}",
+          "assetPattern": "protoc-{assetVersion}-linux-x86_64.zip",
+          "checksumUrl": "https://repo.maven.apache.org/maven2/com/google/protobuf/protoc/{checksumVersion}/protoc-{checksumVersion}-28e19d2e-e971-47cd-8fb8-7d4912425911.intoto.jsonl.exe",
           "checksumAsset": null,
-          "checksumPolicy": "allowGithubDigest",
-          "note": "No upstream checksums exist (issue #16165 closed not_planned). Relies on GitHub automatic asset digest."
+          "checksumFormat": "jsonl-sha256",
+          "checksumPolicy": "requireUpstreamChecksum",
+          "note": "GitHub release zip uses 29.4 asset naming while installed protoc reports 29.4.0; checksum comes from Protobuf's Maven-hosted Kokoro provenance."
         }
       ]
     },

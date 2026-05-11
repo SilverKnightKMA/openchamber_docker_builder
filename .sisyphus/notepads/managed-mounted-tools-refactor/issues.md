@@ -55,3 +55,9 @@
 ## Build Upstream Main Build Context Fix (2026-05-11)
 
 - Run 25679390178 still failed after tag fix (25678792900). Raw `docker build` after `cd upstream` could not find `builder` directory because working directory is now `upstream/`, but `--build-context toolchain=builder` referenced a non-existent `upstream/builder`. Fixed by changing to `--build-context toolchain=../builder`, which correctly resolves to the checked-out builder repo from the upstream directory. Release workflow uses docker/build-push-action with `context: upstream` and `build-contexts: toolchain=builder` (interpreted relative to workspace root, not affected by `cd upstream`), so it remains unchanged.
+
+## LLVM/protobuf managed release metadata blockers (2026-05-11)
+
+- Root cause: clangd was pointed at the nonexistent `clangd/clangd` tag `20.1.3`, clang-format referenced LLVM asset/checksum names not present on `llvmorg-20.1.3`, and protobuf used desired version `29.4.0` in GitHub release/tag asset names even though upstream publishes `v29.4` and `protoc-29.4-linux-x86_64.zip`.
+- Fix: managed release templates now support explicit `tagPattern`/`releaseTag`, `assetVersion`, and `checksumVersion` placeholders through shared template expansion and family-level release settings; LLVM tools use `llvm/llvm-project` tag `llvmorg-20.1.3` plus `LLVM-20.1.3-Linux-X64.tar.xz(.jsonl)`, and protobuf keeps comparable desired version `29.4.0` while selecting release/asset version `29.4`.
+- Verification: `node scripts/managed-mounted-tools.mjs metadata clangd clang-format protobuf-compiler` resolved all release metadata and strict JSONL checksums with no 404; protobuf temp init succeeded when `TMPDIR` was moved off full `/tmp`. LLVM full init was not downloaded because the Linux x64 archive is about 2.0 GB.

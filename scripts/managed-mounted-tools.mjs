@@ -84,16 +84,53 @@ async function exists(filePath) {
   }
 }
 
+function releaseFamilyName(tool) {
+  return releaseFamilies.find((name) => (manifest.families?.[name]?.tools ?? []).includes(tool));
+}
+
+function releaseFamily(tool) {
+  const familyName = releaseFamilyName(tool);
+  return familyName ? manifest.families?.[familyName] : null;
+}
+
+function releaseSetting(tool, key) {
+  return tool[key] ?? releaseFamily(tool)?.[key];
+}
+
+function templateValue(tool, key) {
+  if (key === "version") return tool.version;
+  if (key === "assetVersion") return tool.assetVersion ?? tool.version;
+  if (key === "checksumVersion") return tool.checksumVersion ?? tool.assetVersion ?? tool.version;
+  if (key === "releaseVersion") return tool.releaseVersion ?? tool.version;
+  return tool[key];
+}
+
+function expandTemplate(template, tool) {
+  return template.replaceAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g, (_match, key) => {
+    const value = templateValue(tool, key);
+    if (value === undefined || value === null) throw new Error(`${tool.name} missing template value ${key}`);
+    return value;
+  });
+}
+
 function assetName(tool) {
-  return tool.assetPattern.replaceAll("{version}", tool.version);
+  const assetPattern = releaseSetting(tool, "assetPattern");
+  if (!assetPattern) throw new Error(`${tool.name} asset pattern missing`);
+  return expandTemplate(assetPattern, tool);
 }
 
 function checksumName(tool) {
-  if (tool.checksumAsset) return tool.checksumAsset.replaceAll("{version}", tool.version);
-  // Fall back to family-level checksumAsset for families that define it centrally
-  const familyName = releaseFamilies.find((name) => (manifest.families?.[name]?.tools ?? []).includes(tool));
-  const family = familyName ? manifest.families?.[familyName] : null;
-  return family?.checksumAsset ? family.checksumAsset.replaceAll("{version}", tool.version) : null;
+  const checksumAsset = releaseSetting(tool, "checksumAsset");
+  return checksumAsset ? expandTemplate(checksumAsset, tool) : null;
+}
+
+function checksumUrl(tool) {
+  const urlPattern = releaseSetting(tool, "checksumUrl") ?? releaseSetting(tool, "checksumUrlPattern");
+  return urlPattern ? expandTemplate(urlPattern, tool) : null;
+}
+
+function checksumFormat(tool) {
+  return releaseSetting(tool, "checksumFormat") ?? "sha256sum";
 }
 
 function binaryName(tool) {
@@ -122,15 +159,50 @@ async function bakedReleaseTool(tool) {
 }
 
 async function githubRelease(tool) {
-  const tags = [`v${tool.version}`, tool.version].filter((tag, index, list) => list.indexOf(tag) === index);
+  const explicitTag = releaseSetting(tool, "releaseTag") ?? releaseSetting(tool, "tagPattern");
+  const tags = explicitTag
+    ? [expandTemplate(explicitTag, tool)]
+    : [`v${tool.version}`, tool.version].filter((tag, index, list) => list.indexOf(tag) === index);
   let lastError = null;
   for (const tag of tags) {
-    const url = `https://api.github.com/repos/${tool.repo}/releases/tags/${tag}`;
+    const repo = releaseSetting(tool, "repo");
+    if (!repo) throw new Error(`${tool.name} repo missing`);
+    const url = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
     const response = await fetch(url, { headers: { Accept: "application/vnd.github+json", "User-Agent": "openchamber-managed-tools" } });
     if (response.ok) return response.json();
     lastError = new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
   }
   throw lastError;
+}
+
+function sha256FromJsonl(text, selectedAssetName) {
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const payload = entry.dsseEnvelope?.payload ?? entry.payload;
+    if (!payload) continue;
+    let statement;
+    try {
+      statement = JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
+    } catch {
+      continue;
+    }
+    for (const subject of statement.subject ?? []) {
+      const digest = subject.name === selectedAssetName ? subject.digest?.sha256 : null;
+      if (typeof digest === "string" && digest.match(/^[a-f0-9]{64}$/i)) return digest.toLowerCase();
+    }
+    for (const dependency of statement.predicate?.buildDefinition?.resolvedDependencies ?? []) {
+      const uri = dependency.uri ?? "";
+      const digest = uri.endsWith(`/${selectedAssetName}`) ? dependency.digest?.sha256 : null;
+      if (typeof digest === "string" && digest.match(/^[a-f0-9]{64}$/i)) return digest.toLowerCase();
+    }
+  }
+  return null;
 }
 
 async function download(url, destination) {
@@ -148,18 +220,24 @@ async function sha256File(filePath) {
 async function expectedSha256(tool, release) {
   const asset = release.assets?.find((entry) => entry.name === assetName(tool));
   if (!asset) throw new Error(`${tool.name} asset missing from release metadata`);
-  if (tool.checksumPolicy === "allowGithubDigest") {
+  if (releaseSetting(tool, "checksumPolicy") === "allowGithubDigest") {
     const digest = asset.digest?.match(/^sha256:([a-f0-9]{64})$/i)?.[1];
     if (!digest) throw new Error(`${tool.name} GitHub digest missing`);
     return digest.toLowerCase();
   }
   const checksum = checksumName(tool);
-  if (!checksum) throw new Error(`${tool.name} checksum asset missing`);
-  const checksumAsset = release.assets?.find((entry) => entry.name === checksum);
-  if (!checksumAsset) throw new Error(`${tool.name} checksum asset ${checksum} missing`);
-  const response = await fetch(checksumAsset.browser_download_url, { headers: { Accept: "application/octet-stream", "User-Agent": "openchamber-managed-tools" } });
-  if (!response.ok) throw new Error(`failed to download ${checksum}: ${response.status} ${response.statusText}`);
+  const checksumDownloadUrl = checksumUrl(tool);
+  if (!checksum && !checksumDownloadUrl) throw new Error(`${tool.name} checksum asset missing`);
+  const checksumAsset = checksum ? release.assets?.find((entry) => entry.name === checksum) : null;
+  if (checksum && !checksumAsset) throw new Error(`${tool.name} checksum asset ${checksum} missing`);
+  const checksumSource = checksumAsset?.browser_download_url ?? checksumDownloadUrl;
+  const response = await fetch(checksumSource, { headers: { Accept: "application/octet-stream", "User-Agent": "openchamber-managed-tools" } });
+  if (!response.ok) throw new Error(`failed to download ${checksum ?? checksumSource}: ${response.status} ${response.statusText}`);
   const text = await response.text();
+  if (checksumFormat(tool) === "jsonl-sha256") {
+    const digest = sha256FromJsonl(text, assetName(tool));
+    if (digest) return digest;
+  }
   if (tool.name === "yq") {
     const line = text.split(/\r?\n/).find((entry) => entry.startsWith(`${assetName(tool)} `));
     const parts = line?.trim().split(/\s+/) ?? [];
@@ -170,7 +248,7 @@ async function expectedSha256(tool, release) {
     const match = line.match(/([a-f0-9]{64})/i);
     if (match) return match[1].toLowerCase();
   }
-  throw new Error(`${tool.name} checksum for ${assetName(tool)} not found in ${checksum}`);
+  throw new Error(`${tool.name} checksum for ${assetName(tool)} not found in ${checksum ?? checksumSource}`);
 }
 
 async function extractArchive(archivePath, extractDir) {
@@ -206,7 +284,7 @@ async function extractedBinary(tool, archivePath, tempDir) {
   const extractDir = path.join(tempDir, "extract");
   await extractArchive(archivePath, extractDir);
   if (tool.binPath) {
-    const direct = path.join(extractDir, tool.binPath.replaceAll("{version}", tool.version));
+    const direct = path.join(extractDir, expandTemplate(tool.binPath, tool));
     if (await exists(direct)) return direct;
   }
   const matches = await findBinary(extractDir, binaryName(tool));
@@ -300,6 +378,14 @@ async function installReleaseTool(tool) {
   }
 }
 
+async function validateReleaseMetadata(tool) {
+  const release = await githubRelease(tool);
+  const asset = release.assets?.find((entry) => entry.name === assetName(tool));
+  if (!asset) throw new Error(`${tool.name} asset missing from release metadata`);
+  const expected = await expectedSha256(tool, release);
+  console.log(`[metadata] ${tool.name} ${release.tag_name ?? tool.version} ${assetName(tool)} sha256 ${expected}`);
+}
+
 async function runReleaseStatus() {
   for (const tool of selectedReleaseTools()) {
     printStatusRow(await releaseRow(tool));
@@ -309,6 +395,12 @@ async function runReleaseStatus() {
 async function runReleaseCompare() {
   for (const tool of selectedReleaseTools()) {
     printCompareRow(await releaseRow(tool));
+  }
+}
+
+async function runReleaseMetadata() {
+  for (const tool of selectedReleaseTools()) {
+    await validateReleaseMetadata(tool);
   }
 }
 
@@ -425,6 +517,8 @@ if (command === "init") {
 } else if (command === "compare") {
   await runReleaseCompare();
   if (rustSelected()) await runRustCompare();
+} else if (command === "metadata") {
+  await runReleaseMetadata();
 } else {
   throw new Error(`unknown command: ${command}`);
 }
