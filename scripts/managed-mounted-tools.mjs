@@ -89,7 +89,11 @@ function assetName(tool) {
 }
 
 function checksumName(tool) {
-  return tool.checksumAsset ? tool.checksumAsset.replaceAll("{version}", tool.version) : null;
+  if (tool.checksumAsset) return tool.checksumAsset.replaceAll("{version}", tool.version);
+  // Fall back to family-level checksumAsset for families that define it centrally
+  const familyName = releaseFamilies.find((name) => (manifest.families?.[name]?.tools ?? []).includes(tool));
+  const family = familyName ? manifest.families?.[familyName] : null;
+  return family?.checksumAsset ? family.checksumAsset.replaceAll("{version}", tool.version) : null;
 }
 
 function binaryName(tool) {
