@@ -20,6 +20,12 @@ on:
       - scripts/openchamber-dind-entrypoint.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
+      - scripts/managed-npm-tools.mjs
+      - scripts/managed-go-tools.mjs
+      - scripts/managed-mounted-tools.mjs
+      - scripts/managed-tools-output.mjs
+      - scripts/managed-tools-status.mjs
+      - managed-tools/**
       - .github/workflows/build-upstream-main.yml
       - .github/workflows/build-upstream-release.yml
       - .github/workflows/update-release-tools.yml
@@ -38,6 +44,12 @@ on:
       - scripts/openchamber-dind-entrypoint.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
+      - scripts/managed-npm-tools.mjs
+      - scripts/managed-go-tools.mjs
+      - scripts/managed-mounted-tools.mjs
+      - scripts/managed-tools-output.mjs
+      - scripts/managed-tools-status.mjs
+      - managed-tools/**
       - .github/workflows/build-upstream-main.yml
       - .github/workflows/build-upstream-release.yml
       - .github/workflows/update-release-tools.yml
@@ -78,6 +90,13 @@ jobs:
             scripts/openchamber-dind-entrypoint.sh
             scripts/update-release-tools.mjs
             scripts/validate-release-tools.mjs
+            scripts/managed-npm-tools.mjs
+            scripts/managed-go-tools.mjs
+            scripts/managed-mounted-tools.mjs
+            scripts/managed-tools-output.mjs
+            scripts/managed-tools-status.mjs
+            managed-tools/manifest.json
+            managed-tools/policy.json
             .github/workflows/build-upstream-main.yml
             .github/workflows/build-upstream-release.yml
             .github/workflows/update-release-tools.yml
@@ -141,41 +160,23 @@ jobs:
             echo "Image tag already exists: ${{ steps.tags.outputs.check_tag }}"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Image tag does not exist: ${{ steps.tags.outputs.check_tag }}"
           fi
 
-      - name: Set up Docker Buildx
-        if: github.event_name == 'pull_request' || steps.existing.outputs.exists != 'true'
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build upstream main image
-        if: github.event_name == 'pull_request' || steps.existing.outputs.exists != 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: upstream
-          file: builder/Dockerfile.dockerfile
-          build-contexts: |
-            toolchain=builder
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.tags.outputs.tags }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ env.UPSTREAM_REPO }}
-            org.opencontainers.image.revision=${{ steps.upstream.outputs.sha }}
-            org.opencontainers.image.version=${{ steps.tags.outputs.version_tag }}
-            org.opencontainers.image.description=Built from upstream ${{ env.UPSTREAM_REPO }} main
-            io.openchamber.builder-scope-sha=${{ steps.builder_scope.outputs.builder_scope_sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Summary
+      - name: Build and push image
+        if: github.event_name == 'pull_request' || steps.existing.outputs.exists == 'false'
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "## Build validated" >> "$GITHUB_STEP_SUMMARY"
-            echo "PR validation built upstream main image without pushing." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
-            echo "## Build skipped" >> "$GITHUB_STEP_SUMMARY"
-            echo "${{ steps.tags.outputs.check_tag }} already exists." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "## Build complete" >> "$GITHUB_STEP_SUMMARY"
-            echo "Pushed: ${{ steps.tags.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          cd upstream
+          docker build \
+            -f ../builder/Dockerfile.dockerfile \
+            --build-context toolchain=builder \
+            --build-arg VERSION="${{ steps.upstream.outputs.sha }}" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t "${{ steps.tags.outputs.check_tag }}" \
+            -t "${{ steps.tags.outputs.tags }}" \
+            .
+          echo "Built and tagged: ${{ steps.tags.outputs.tags }}"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker push --all-tags "${{ env.REGISTRY }}/$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')"
+            echo "Pushed all tags"
           fi
-          echo "Builder scope: \`${{ steps.builder_scope.outputs.builder_scope_short_sha }}\`" >> "$GITHUB_STEP_SUMMARY"

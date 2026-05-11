@@ -108,3 +108,26 @@ Updated final documentation and created Task 8 evidence files for build/static i
 - `.sisyphus/evidence/task-8-live-container.txt`: explicit live-container blocker and exact build/run/probe commands to run once upstream context exists.
 - `.sisyphus/evidence/task-8-real-mounted-update.txt`: fresh filtered `yq` install into a temp mounted bin dir with version and SHA-256 evidence.
 - `.sisyphus/evidence/task-8-docs-check.txt`: docs-to-runtime comparison and stale-claim search results.
+
+## Workflow Trigger/Fingerprint Gotcha (2026-05-11)
+
+### Problem
+After the managed-mounted-tools refactor, `scripts/managed-*.mjs` and `managed-tools/` were copied into the Docker image by `Dockerfile.dockerfile`, but the CI build workflows (`build-upstream-main.yml`, `build-upstream-release.yml`) did not include these files in their path filters or builder-scope fingerprint arrays. This meant:
+- Changing `scripts/managed-mounted-tools.mjs` would NOT trigger a CI build
+- Even if it did trigger, the builder-scope SHA would not change, so existing cached image tags would be reused instead of building new images
+
+### Files affected by this gotcha
+All toolchain files copied into the image that were missing from CI trigger/fingerprint scope:
+- `managed-tools/` (the whole directory, copied to `/opt/openchamber/managed-tools/managed-tools/`)
+- `scripts/managed-npm-tools.mjs`, `scripts/managed-go-tools.mjs`, `scripts/managed-mounted-tools.mjs`, `scripts/managed-tools-output.mjs`, `scripts/managed-tools-status.mjs` (all copied to `/opt/openchamber/managed-tools/scripts/`)
+
+### Fix applied
+Added to both `build-upstream-main.yml` and `build-upstream-release.yml`:
+1. Path filter entries for each managed script and `managed-tools/**`
+2. Fingerprint `files=()` entries for each managed script and `managed-tools/` directory
+
+### Lesson
+When adding new files that are baked into the Docker image, always update:
+- The `paths:` filter in both PR and push triggers
+- The `files=()` fingerprint array in the builder-scope step
+Without both, builds may be skipped (path filter missing) or produce stale-tagged images (fingerprint missing).

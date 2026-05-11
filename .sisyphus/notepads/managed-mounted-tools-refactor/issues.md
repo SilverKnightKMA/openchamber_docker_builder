@@ -42,3 +42,8 @@
 
 - Full Docker build, image history inspection, live container startup, and HTTP probing remain blocked because the expected upstream context `/home/openchamber/workspaces/openchamber` is absent in this workspace. Task 8 evidence records the exact commands to run once that context exists.
 - When searching docs for stale phrases that include Markdown backticks, quote the shell pattern with single quotes; double-quoted backticks triggered shell command substitution during one local search attempt.
+
+## Workflow Fingerprint Fix (2026-05-11)
+
+- `managed-tools/` (directory) was added to `files=(` arrays in both build workflows, but the fingerprint loop uses `if [ ! -f "${file}" ]` and `sha256sum "${file}"` which fail on directories. Fixed by replacing with explicit `managed-tools/manifest.json` and `managed-tools/policy.json` entries. Path filters `managed-tools/**` remain untouched — they are fine in path filters, only in `files=(` where file operations are performed.
+- Lesson: `files=(` arrays feeding `sha256sum` should never contain directory paths. Use explicit file lists. Path filters in `on.pull_request.paths` are glob-based and handle `**` wildcards correctly for directories — no functional issue there, but the `files=(` array is for file hashing.

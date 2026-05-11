@@ -20,6 +20,12 @@ on:
       - scripts/openchamber-dind-entrypoint.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
+      - scripts/managed-npm-tools.mjs
+      - scripts/managed-go-tools.mjs
+      - scripts/managed-mounted-tools.mjs
+      - scripts/managed-tools-output.mjs
+      - scripts/managed-tools-status.mjs
+      - managed-tools/**
       - .github/workflows/build-upstream-main.yml
       - .github/workflows/build-upstream-release.yml
       - .github/workflows/update-release-tools.yml
@@ -38,6 +44,12 @@ on:
       - scripts/openchamber-dind-entrypoint.sh
       - scripts/update-release-tools.mjs
       - scripts/validate-release-tools.mjs
+      - scripts/managed-npm-tools.mjs
+      - scripts/managed-go-tools.mjs
+      - scripts/managed-mounted-tools.mjs
+      - scripts/managed-tools-output.mjs
+      - scripts/managed-tools-status.mjs
+      - managed-tools/**
       - .github/workflows/build-upstream-main.yml
       - .github/workflows/build-upstream-release.yml
       - .github/workflows/update-release-tools.yml
@@ -84,6 +96,13 @@ jobs:
             scripts/openchamber-dind-entrypoint.sh
             scripts/update-release-tools.mjs
             scripts/validate-release-tools.mjs
+            scripts/managed-npm-tools.mjs
+            scripts/managed-go-tools.mjs
+            scripts/managed-mounted-tools.mjs
+            scripts/managed-tools-output.mjs
+            scripts/managed-tools-status.mjs
+            managed-tools/manifest.json
+            managed-tools/policy.json
             .github/workflows/build-upstream-main.yml
             .github/workflows/build-upstream-release.yml
             .github/workflows/update-release-tools.yml
