@@ -131,3 +131,9 @@ When adding new files that are baked into the Docker image, always update:
 - The `paths:` filter in both PR and push triggers
 - The `files=()` fingerprint array in the builder-scope step
 Without both, builds may be skipped (path filter missing) or produce stale-tagged images (fingerprint missing).
+
+## Mounted Managed-Tools Temp/Logging Hardening (2026-05-11)
+
+- Managed release and Go toolchain installers now choose temp root from `OPENCHAMBER_MANAGED_TOOLS_TMPDIR`, `MANAGED_TOOLS_TMPDIR`, `TMPDIR`, then `~/.cache/openchamber-managed/tmp`.
+- The temp root is created before `mkdtemp`, which lets compose persist download/extract workspace through the `./data/managed-tools-cache` mount instead of relying on plain `/tmp`.
+- Runtime logs use stable prefixes for operator visibility across command state, release metadata lookup, downloads, checksum verification, archive extraction, installs, skips, and warnings without printing full environment data.

@@ -124,6 +124,10 @@ The Docker build copies the managed-tool manifests and scripts into `/opt/opench
 
 Managed tool versions and policies live in `managed-tools/manifest.json`, `managed-tools/policy.json`, `package.json`, `package-lock.json`, `go.mod`, `go.sum`, and `tools.go`. Release-binary installs verify an authoritative SHA-256 source, either an upstream-published checksum asset or GitHub release asset digest metadata. The installer uses actual package or binary version detection and checksum evidence; mounted metadata files are never trusted as the source of truth.
 
+Download and extraction work for managed release archives and the Go toolchain uses a configurable temp root with this precedence: `OPENCHAMBER_MANAGED_TOOLS_TMPDIR`, `MANAGED_TOOLS_TMPDIR`, `TMPDIR`, then `~/.cache/openchamber-managed/tmp`. The compose example mounts `./data/managed-tools-cache` at `~/.cache/openchamber-managed`, so the default temp path is persisted outside plain container `/tmp`. Use the `OPENCHAMBER_MANAGED_TOOLS_TMPDIR` override only when you need a different roomy mounted location.
+
+LLVM release archives are large. `clangd` downloads an archive around 2 GB and needs additional extraction space, so initialize LLVM-managed tools only when the managed cache mount has several free gigabytes. If the host cache volume is space constrained, point `OPENCHAMBER_MANAGED_TOOLS_TMPDIR` at a larger mounted path before running `managed-tools:mounted:init -- clangd` or the full managed init.
+
 Run these commands inside the container to inspect or update managed mounted tools:
 
 ```bash

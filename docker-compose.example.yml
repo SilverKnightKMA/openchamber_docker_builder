@@ -22,6 +22,9 @@ services:
       # Optional: install/update managed mounted tools at startup. Default startup
       # does not fetch tools; run only for trusted networks and writable mounts.
       # OPENCHAMBER_MANAGED_TOOLS_AUTOINSTALL: "true"
+      # Optional: override managed download/extract temp root. The default below
+      # uses the mounted managed-tools-cache volume, which is roomier than /tmp.
+      # OPENCHAMBER_MANAGED_TOOLS_TMPDIR: /home/openchamber/.cache/openchamber-managed/tmp
       # Managed install roots are baked into the image env: .npm-global,
       # .local/go, .go, .cargo, .rustup, .local/pip, and .bun.
     restart: unless-stopped
@@ -44,6 +47,8 @@ services:
       - ./data/cargo:/home/openchamber/.cargo
       - ./data/rustup:/home/openchamber/.rustup
       - ./data/go:/home/openchamber/.go
+      # Managed download/extract cache and tmp root for large release archives.
+      - ./data/managed-tools-cache:/home/openchamber/.cache/openchamber-managed
       - ./data/nvim/config:/home/openchamber/.config/nvim
       - ./data/nvim/share:/home/openchamber/.local/share/nvim
       - ./data/nvim/state:/home/openchamber/.local/state/nvim

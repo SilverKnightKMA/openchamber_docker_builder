@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { actionForState, diagnosticForState, printCompareRow, printStatusRow } from "./managed-tools-output.mjs";
+import { actionForState, diagnosticForState, formatFields, printCompareRow, printStatusRow } from "./managed-tools-output.mjs";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,6 +19,7 @@ const comparePolicy = policy.policy?.compare ?? {};
 const command = process.argv[2] ?? "status";
 const selectedTools = process.argv.slice(3);
 const binRoot = normalizePath(process.env.MANAGED_RELEASE_BIN_DIR ?? "~/.local/bin");
+const tempRoot = managedTempRoot();
 const rustupFamily = manifest.families?.rustup;
 if (!rustupFamily) throw new Error("managed-tools manifest missing rustup family");
 
@@ -28,6 +29,33 @@ let bakedReleaseTools = null;
 function normalizePath(value) {
   if (value.startsWith("~/")) return path.join(os.homedir(), value.slice(2));
   return path.resolve(value);
+}
+
+function managedTempRoot() {
+  return normalizePath(process.env.OPENCHAMBER_MANAGED_TOOLS_TMPDIR
+    ?? process.env.MANAGED_TOOLS_TMPDIR
+    ?? process.env.TMPDIR
+    ?? "~/.cache/openchamber-managed/tmp");
+}
+
+async function makeTempDir(prefix) {
+  await mkdir(tempRoot, { recursive: true });
+  return mkdtemp(path.join(tempRoot, prefix));
+}
+
+function selectedFilterLabel() {
+  return selectedTools.length === 0 ? "all" : selectedTools.join(",");
+}
+
+function logRuntimeState() {
+  console.log(`[state] ${formatFields({
+    command,
+    filters: selectedFilterLabel(),
+    release_bin_root: binRoot,
+    rustup_home: rustHome(),
+    cargo_home: cargoHome(),
+    temp_root: tempRoot,
+  })}`);
 }
 
 function stripPrefix(version) {
@@ -168,8 +196,19 @@ async function githubRelease(tool) {
     const repo = releaseSetting(tool, "repo");
     if (!repo) throw new Error(`${tool.name} repo missing`);
     const url = `https://api.github.com/repos/${repo}/releases/tags/${tag}`;
+    console.log(`[fetch] ${formatFields({ tool: tool.name, repo, release_tag: tag, target: "github-release" })}`);
     const response = await fetch(url, { headers: { Accept: "application/vnd.github+json", "User-Agent": "openchamber-managed-tools" } });
-    if (response.ok) return response.json();
+    if (response.ok) {
+      const release = await response.json();
+      console.log(`[fetch] ${formatFields({
+        tool: tool.name,
+        release_tag: release.tag_name ?? tag,
+        assets: release.assets?.length ?? 0,
+        target: "github-release",
+      })}`);
+      return release;
+    }
+    console.log(`[fetch] ${formatFields({ tool: tool.name, repo, release_tag: tag, result: "miss", status: response.status })}`);
     lastError = new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
   }
   throw lastError;
@@ -205,10 +244,12 @@ function sha256FromJsonl(text, selectedAssetName) {
   return null;
 }
 
-async function download(url, destination) {
+async function download(url, destination, fields = {}) {
+  console.log(`[download] ${formatFields({ ...fields, target: destination })}`);
   const response = await fetch(url, { headers: { Accept: "application/octet-stream", "User-Agent": "openchamber-managed-tools" } });
   if (!response.ok) throw new Error(`failed to download ${url}: ${response.status} ${response.statusText}`);
   await pipeline(response.body, createWriteStream(destination));
+  console.log(`[download] ${formatFields({ ...fields, target: destination, status: "complete" })}`);
 }
 
 async function sha256File(filePath) {
@@ -231,6 +272,13 @@ async function expectedSha256(tool, release) {
   const checksumAsset = checksum ? release.assets?.find((entry) => entry.name === checksum) : null;
   if (checksum && !checksumAsset) throw new Error(`${tool.name} checksum asset ${checksum} missing`);
   const checksumSource = checksumAsset?.browser_download_url ?? checksumDownloadUrl;
+  console.log(`[verify] ${formatFields({
+    tool: tool.name,
+    asset: assetName(tool),
+    checksum_asset: checksum ?? checksumSource,
+    checksum_format: checksumFormat(tool),
+    target: "checksum-source",
+  })}`);
   const response = await fetch(checksumSource, { headers: { Accept: "application/octet-stream", "User-Agent": "openchamber-managed-tools" } });
   if (!response.ok) throw new Error(`failed to download ${checksum ?? checksumSource}: ${response.status} ${response.statusText}`);
   const text = await response.text();
@@ -253,16 +301,20 @@ async function expectedSha256(tool, release) {
 
 async function extractArchive(archivePath, extractDir) {
   await mkdir(extractDir, { recursive: true });
+  console.log(`[extract] ${formatFields({ archive: path.basename(archivePath), target: extractDir })}`);
   if (archivePath.endsWith(".zip")) {
     await execFileAsync("unzip", ["-q", archivePath, "-d", extractDir], { env: { ...process.env } });
+    console.log(`[extract] ${formatFields({ archive: path.basename(archivePath), target: extractDir, status: "complete" })}`);
     return;
   }
   if (archivePath.endsWith(".tar.gz")) {
     await execFileAsync("tar", ["-xzf", archivePath, "-C", extractDir], { env: { ...process.env } });
+    console.log(`[extract] ${formatFields({ archive: path.basename(archivePath), target: extractDir, status: "complete" })}`);
     return;
   }
   if (archivePath.endsWith(".tar.xz")) {
     await execFileAsync("tar", ["-xJf", archivePath, "-C", extractDir], { env: { ...process.env } });
+    console.log(`[extract] ${formatFields({ archive: path.basename(archivePath), target: extractDir, status: "complete" })}`);
     return;
   }
   throw new Error(`unsupported archive ${archivePath}`);
@@ -360,19 +412,27 @@ async function installReleaseTool(tool) {
   const release = await githubRelease(tool);
   const asset = release.assets?.find((entry) => entry.name === assetName(tool));
   if (!asset) throw new Error(`${tool.name} asset missing from release metadata`);
+  console.log(`[fetch] ${formatFields({
+    tool: tool.name,
+    release_tag: release.tag_name ?? tool.version,
+    asset: asset.name,
+    size: asset.size,
+    target: installPath(tool),
+  })}`);
   const expected = await expectedSha256(tool, release);
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "managed-release-"));
+  const tempDir = await makeTempDir("managed-release-");
   const archivePath = path.join(tempDir, assetName(tool));
   try {
-    await download(asset.browser_download_url, archivePath);
+    await download(asset.browser_download_url, archivePath, { tool: tool.name, asset: asset.name, size: asset.size });
     const actual = await sha256File(archivePath);
     if (actual !== expected) throw new Error(`${tool.name} sha256 mismatch: expected ${expected}, got ${actual}`);
+    console.log(`[verify] ${formatFields({ tool: tool.name, asset: asset.name, sha256: expected, target: archivePath })}`);
     const source = await extractedBinary(tool, archivePath, tempDir);
     await mkdir(path.dirname(installPath(tool)), { recursive: true });
+    console.log(`[install] ${formatFields({ tool: tool.name, version: tool.version, source, target: installPath(tool) })}`);
     await copyFile(source, installPath(tool));
     await chmod(installPath(tool), 0o755);
     console.log(`[install] ${tool.name} ${tool.version} installed to ${installPath(tool)}`);
-    console.log(`[verify] ${assetName(tool)} sha256 ${expected}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -383,7 +443,14 @@ async function validateReleaseMetadata(tool) {
   const asset = release.assets?.find((entry) => entry.name === assetName(tool));
   if (!asset) throw new Error(`${tool.name} asset missing from release metadata`);
   const expected = await expectedSha256(tool, release);
-  console.log(`[metadata] ${tool.name} ${release.tag_name ?? tool.version} ${assetName(tool)} sha256 ${expected}`);
+  console.log(`[fetch] ${formatFields({
+    tool: tool.name,
+    release_tag: release.tag_name ?? tool.version,
+    asset: asset.name,
+    size: asset.size,
+    target: "metadata",
+  })}`);
+  console.log(`[verify] ${formatFields({ tool: tool.name, asset: assetName(tool), sha256: expected, target: "metadata" })}`);
 }
 
 async function runReleaseStatus() {
@@ -509,15 +576,19 @@ async function runReleaseInit() {
 }
 
 if (command === "init") {
+  logRuntimeState();
   await runReleaseInit();
   if (rustSelected()) await installRustupToolchain();
 } else if (command === "status") {
+  logRuntimeState();
   await runReleaseStatus();
   if (rustSelected()) await runRustStatus();
 } else if (command === "compare") {
+  logRuntimeState();
   await runReleaseCompare();
   if (rustSelected()) await runRustCompare();
 } else if (command === "metadata") {
+  logRuntimeState();
   await runReleaseMetadata();
 } else {
   throw new Error(`unknown command: ${command}`);

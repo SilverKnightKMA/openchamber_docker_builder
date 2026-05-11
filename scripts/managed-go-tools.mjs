@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { actionForState, diagnosticForState, printCompareRow, printStatusRow } from "./managed-tools-output.mjs";
+import { actionForState, diagnosticForState, formatFields, printCompareRow, printStatusRow } from "./managed-tools-output.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -32,12 +32,36 @@ if (!goToolchain) throw new Error("managed-tools manifest missing go toolchain e
 const goRoot = normalizePath(process.env.MANAGED_GO_ROOT ?? goToolchainFamily.installPath);
 const goBin = normalizePath(process.env.GOBIN ?? goToolsFamily.gobin ?? goToolsFamily.installPath);
 const goBinary = process.env.MANAGED_GO_BINARY ?? path.join(goRoot, "bin", "go");
+const tempRoot = managedTempRoot();
 const tools = goToolsFamily.tools ?? [];
 const comparePolicy = policy.policy?.compare ?? {};
 
 function normalizePath(value) {
   if (value.startsWith("~/")) return path.join(os.homedir(), value.slice(2));
   return path.resolve(value);
+}
+
+function managedTempRoot() {
+  return normalizePath(process.env.OPENCHAMBER_MANAGED_TOOLS_TMPDIR
+    ?? process.env.MANAGED_TOOLS_TMPDIR
+    ?? process.env.TMPDIR
+    ?? "~/.cache/openchamber-managed/tmp");
+}
+
+async function makeTempDir(prefix) {
+  await mkdir(tempRoot, { recursive: true });
+  return mkdtemp(path.join(tempRoot, prefix));
+}
+
+function logRuntimeState() {
+  console.log(`[state] ${formatFields({
+    command,
+    filters: "go",
+    go_root: goRoot,
+    go_bin: goBin,
+    go_binary: goBinary,
+    temp_root: tempRoot,
+  })}`);
 }
 
 async function exists(filePath) {
@@ -85,6 +109,7 @@ function toolchainArchiveName() {
 
 async function resolveToolchainMetadata() {
   const metadataUrl = goToolchainFamily.checksumUrlPattern;
+  console.log(`[fetch] ${formatFields({ tool: "go", version: goToolchain.version, target: "go-release-metadata" })}`);
   const response = await fetch(metadataUrl);
   if (!response.ok) throw new Error(`failed to fetch ${metadataUrl}: ${response.status} ${response.statusText}`);
   const releases = await response.json();
@@ -93,17 +118,26 @@ async function resolveToolchainMetadata() {
     for (const file of release.files ?? []) {
       if (file.filename === archiveName) {
         if (!file.sha256) throw new Error(`${archiveName} missing sha256 in Go metadata`);
-        return { archiveName, sha256: file.sha256, url: `https://go.dev/dl/${archiveName}` };
+        console.log(`[fetch] ${formatFields({
+          tool: "go",
+          release_tag: release.version,
+          asset: archiveName,
+          size: file.size,
+          target: "go-release-metadata",
+        })}`);
+        return { archiveName, sha256: file.sha256, size: file.size, url: `https://go.dev/dl/${archiveName}` };
       }
     }
   }
   throw new Error(`${archiveName} not found in Go metadata ${metadataUrl}`);
 }
 
-async function downloadFile(url, destination) {
+async function downloadFile(url, destination, fields = {}) {
+  console.log(`[download] ${formatFields({ ...fields, target: destination })}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`failed to download ${url}: ${response.status} ${response.statusText}`);
   await pipeline(response.body, createWriteStream(destination));
+  console.log(`[download] ${formatFields({ ...fields, target: destination, status: "complete" })}`);
 }
 
 async function sha256File(filePath) {
@@ -138,24 +172,27 @@ async function installToolchain() {
   }
 
   const metadata = await resolveToolchainMetadata();
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "managed-go-"));
+  const tempDir = await makeTempDir("managed-go-");
   const archivePath = path.join(tempDir, metadata.archiveName);
   try {
-    await downloadFile(metadata.url, archivePath);
+    await downloadFile(metadata.url, archivePath, { tool: "go", asset: metadata.archiveName, size: metadata.size });
     const actualSha256 = await sha256File(archivePath);
     if (actualSha256 !== metadata.sha256) {
       throw new Error(`${metadata.archiveName} sha256 mismatch: expected ${metadata.sha256}, got ${actualSha256}`);
     }
+    console.log(`[verify] ${formatFields({ tool: "go", asset: metadata.archiveName, sha256: metadata.sha256, target: archivePath })}`);
     await rm(goRoot, { recursive: true, force: true });
     await mkdir(path.dirname(goRoot), { recursive: true });
+    console.log(`[extract] ${formatFields({ archive: metadata.archiveName, target: path.dirname(goRoot) })}`);
     await execFileAsync("tar", ["-C", path.dirname(goRoot), "-xzf", archivePath], { env: { ...process.env } });
+    console.log(`[extract] ${formatFields({ archive: metadata.archiveName, target: path.dirname(goRoot), status: "complete" })}`);
     const extractedRoot = path.join(path.dirname(goRoot), "go");
     if (extractedRoot !== goRoot) {
       await rm(goRoot, { recursive: true, force: true });
       await rename(extractedRoot, goRoot);
     }
+    console.log(`[install] ${formatFields({ tool: "go", version: goToolchain.version, target: goRoot })}`);
     console.log(`[install] go ${goToolchain.version} installed to ${goRoot}`);
-    console.log(`[verify] ${metadata.archiveName} sha256 ${metadata.sha256}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -261,6 +298,7 @@ async function installGoTools() {
       console.log(`[skip] ${row.tool} ${row.installed} matches pinned ${row.expected}`);
       continue;
     }
+    console.log(`[install] ${formatFields({ tool: row.tool, version: row.expected, pkg: row.toolDefinition.pkg, target: path.join(goBin, row.tool) })}`);
     await execFileAsync(goBinary, ["install", "-mod=readonly", row.toolDefinition.pkg], {
       cwd: repoRoot,
       env: { ...process.env, GOBIN: goBin, PATH: `${path.dirname(goBinary)}:${process.env.PATH ?? ""}` },
@@ -278,14 +316,19 @@ async function runInit() {
 }
 
 if (command === "init") {
+  logRuntimeState();
   await runInit();
 } else if (command === "status") {
+  logRuntimeState();
   await printRows(printStatusRow);
 } else if (command === "compare") {
+  logRuntimeState();
   await printRows(printCompareRow);
 } else if (command === "toolchain") {
+  logRuntimeState();
   await installToolchain();
 } else if (command === "tools") {
+  logRuntimeState();
   await installGoTools();
 } else {
   console.error("usage: managed-go-tools.mjs [init|status|compare|toolchain|tools]");
