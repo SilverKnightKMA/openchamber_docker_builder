@@ -9,6 +9,10 @@ on:
     - cron: "0 3 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: update-release-tools
+  cancel-in-progress: false
+
 jobs:
   update-release-tools:
     name: Update pinned release tools
@@ -44,6 +48,8 @@ jobs:
 
             This workflow does not download release binaries to compute hashes; it only consumes release metadata and upstream checksum assets.
           branch: automated/update-release-tools
+          delete-branch: true
+          add-paths: tools/release-tools.json
           labels: |
             automated
             dependencies

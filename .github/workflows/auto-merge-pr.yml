@@ -20,6 +20,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: auto-merge-pr-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   enable-automerge:
     name: Enable auto-merge for trusted automation
@@ -106,6 +110,14 @@ jobs:
           echo "Has automated label: ${{ steps.policy.outputs.has_automated_label }}"
           echo "Has wip label: ${{ steps.policy.outputs.has_wip_label }}"
           echo "Draft PR: ${{ steps.pr.outputs.isDraft }}"
+
+      - name: Update branch when behind
+        if: steps.policy.outputs.allowed == 'true' && steps.pr.outputs.mergeStateStatus == 'BEHIND'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr update-branch "${PR_NUMBER}" --repo "${GH_REPO}"
 
       - name: Enable auto-merge
         if: steps.policy.outputs.allowed == 'true'
