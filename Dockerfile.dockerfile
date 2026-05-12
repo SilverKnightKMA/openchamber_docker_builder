@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM node:25-bookworm-slim@sha256:e49fd70491eb042270f974167c874d6245287263ffc16422fcf93b3c150409d8 AS node-runtime
+FROM node:26-bookworm-slim@sha256:d2ec0a1766c01dad04a185c2d5558b0adace167a7f1758ce80f0017698431d06 AS node-runtime
 
 FROM cloudflare/cloudflared:latest@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0 AS cloudflared
 
-FROM docker:29.4.1-dind@sha256:c77e5d7912f9b137cc67051fdc2991d8f5ae22c55ddf532bb836dcb693a04940 AS docker-dind
+FROM docker:29.4.3-dind@sha256:685b91dca8eab7de1dce1c303dbb7a763e4082d6a60db10968adf3295fbd2495 AS docker-dind
 
 FROM oven/bun:1.3.13@sha256:87416c977a612a204eb54ab9f3927023c2a3c971f4f345a01da08ea6262ae30e AS app-builder
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
